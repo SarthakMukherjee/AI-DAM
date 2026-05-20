@@ -4,7 +4,8 @@ from fastapi import (
     File,
     Depends,
     HTTPException,
-    Form
+    Form,
+    status
 )
 
 import os
@@ -14,13 +15,16 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from pydantic import ValidationError
 
-
 from app.api.dependencies.database import get_db
+from app.api.dependencies.auth_dependency import (
+    get_current_user,
+    require_admin
+)
 from app.services.storage.asset_service import AssetService
 from app.models.asset.asset_model import Asset
-from app.schemas.metadata.metadata_schema import (
-    AssetMetadataSchema
-)
+from app.models.analytics.asset_usage_model import AssetUsage
+from app.models.user.user_model import User
+from app.schemas.metadata.metadata_schema import AssetMetadataSchema
 
 
 router = APIRouter(
@@ -33,9 +37,6 @@ asset_service = AssetService()
 
 # -----------------------------------
 # METADATA SANITIZER
-# strips whitespace, newlines, and
-# control characters that break
-# json.loads when sent via form data
 # -----------------------------------
 
 def sanitize_json_string(raw: str) -> str:
@@ -51,57 +52,77 @@ def sanitize_json_string(raw: str) -> str:
 
 
 # -----------------------------------
-# UPLOAD
+# USAGE LOGGER
 # -----------------------------------
 
-@router.post("/upload")
+def log_usage(
+    asset_id: str,
+    action: str,
+    db: Session
+):
+
+    try:
+        usage = AssetUsage(
+            asset_id=asset_id,
+            action=action,
+            usage_count=1
+        )
+        db.add(usage)
+        db.commit()
+    except Exception as e:
+        print(f"Usage logging failed: {e}")
+
+
+# -----------------------------------
+# UPLOAD
+# super_admin + admin only
+# always saved as draft
+# -----------------------------------
+
+@router.post(
+    "/upload",
+    status_code=status.HTTP_201_CREATED
+)
 async def upload_asset(
     file: UploadFile = File(...),
     metadata: str = Form("{}"),
-    status: str = Form("draft"),
     parent_id: str = Form(None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin)
 ):
 
     try:
 
         sanitized = sanitize_json_string(metadata)
-
         parsed_metadata = json.loads(sanitized)
-
-        validated_metadata = (
-            AssetMetadataSchema(**parsed_metadata)
+        validated_metadata = AssetMetadataSchema(
+            **parsed_metadata
         )
 
     except json.JSONDecodeError as json_err:
-
         raise HTTPException(
             status_code=400,
-            detail=(
-                f"Invalid JSON in metadata field: "
-                f"{str(json_err)}"
-            )
+            detail=f"Invalid JSON in metadata: {str(json_err)}"
         )
 
     except ValidationError as valid_errors:
-
         raise HTTPException(
             status_code=422,
             detail=valid_errors.errors()
         )
 
     except Exception as excep_errors:
-
         raise HTTPException(
             status_code=500,
             detail=str(excep_errors)
         )
 
+    # always draft on upload
     asset = await asset_service.upload_asset(
         file=file,
         db=db,
         metadata=validated_metadata.model_dump(),
-        status=status,
+        status="draft",
         parent_id=parent_id
     )
 
@@ -109,13 +130,39 @@ async def upload_asset(
 
 
 # -----------------------------------
-# DOWNLOAD
+# LIST ASSETS
+# user         → approved only
+# admin/reviewer/super_admin → all
+# -----------------------------------
+
+@router.get("/")
+def list_assets(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+
+    if current_user.role == "user":
+
+        return (
+            db.query(Asset)
+            .filter(Asset.status == "approved")
+            .all()
+        )
+
+    return db.query(Asset).all()
+
+
+# -----------------------------------
+# DOWNLOAD — auth required
+# user: approved only
+# others: any status
 # -----------------------------------
 
 @router.get("/{asset_id}/download")
 def download_asset(
     asset_id: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
 
     asset = (
@@ -129,6 +176,17 @@ def download_asset(
             status_code=404,
             detail="Asset not found"
         )
+
+    if (
+        current_user.role == "user"
+        and asset.status != "approved"
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Asset not available"
+        )
+
+    log_usage(asset_id, "download", db)
 
     return FileResponse(
         path=asset.storage_path,
@@ -137,15 +195,14 @@ def download_asset(
 
 
 # -----------------------------------
-# PREVIEW
-# images/videos: returns thumbnail
-# PDFs: redirects to /pdf-viewer
+# PREVIEW — auth required
 # -----------------------------------
 
 @router.get("/{asset_id}/preview")
 def preview_asset(
     asset_id: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
 
     asset = (
@@ -158,6 +215,15 @@ def preview_asset(
         raise HTTPException(
             status_code=404,
             detail="Asset not found"
+        )
+
+    if (
+        current_user.role == "user"
+        and asset.status != "approved"
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Asset not available"
         )
 
     preview_path = (
@@ -171,20 +237,21 @@ def preview_asset(
             detail="Preview unavailable"
         )
 
+    log_usage(asset_id, "preview", db)
+
     return FileResponse(preview_path)
 
 
 # -----------------------------------
-# PDF VIEWER
-# serves original PDF inline so the
-# browser renders it natively —
-# no download required
+# PDF VIEWER — auth required
+# serves PDF inline in browser
 # -----------------------------------
 
 @router.get("/{asset_id}/pdf-viewer")
 def pdf_viewer(
     asset_id: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
 
     asset = (
@@ -197,6 +264,15 @@ def pdf_viewer(
         raise HTTPException(
             status_code=404,
             detail="Asset not found"
+        )
+
+    if (
+        current_user.role == "user"
+        and asset.status != "approved"
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Asset not available"
         )
 
     if asset.mime_type != "application/pdf":
@@ -213,10 +289,7 @@ def pdf_viewer(
             detail="PDF file not found on disk"
         )
 
-    # -----------------------------------
-    # inline disposition = browser opens
-    # attachment disposition = download
-    # -----------------------------------
+    log_usage(asset_id, "preview", db)
 
     return FileResponse(
         path=asset.storage_path,
@@ -230,17 +303,15 @@ def pdf_viewer(
 
 
 # -----------------------------------
-# PDF PAGE IMAGE
-# serves a specific page as PNG
-# useful for custom page-by-page
-# viewers or thumbnails
+# PDF PAGE IMAGE — auth required
 # -----------------------------------
 
 @router.get("/{asset_id}/pdf-viewer/page/{page_num}")
 def pdf_page_image(
     asset_id: str,
     page_num: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
 
     asset = (
@@ -255,16 +326,20 @@ def pdf_page_image(
             detail="Asset not found"
         )
 
+    if (
+        current_user.role == "user"
+        and asset.status != "approved"
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Asset not available"
+        )
+
     if asset.mime_type != "application/pdf":
         raise HTTPException(
             status_code=400,
             detail="Asset is not a PDF"
         )
-
-    # -----------------------------------
-    # PAGE IMAGES ARE STORED AS:
-    # previews/{stored_filename}/page_N.png
-    # -----------------------------------
 
     from app.core.config.settings import settings
 

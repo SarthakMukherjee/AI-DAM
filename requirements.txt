@@ -34,3 +34,13 @@ ultralytics
 
 groq
 filetype
+# AUTH
+passlib[bcrypt]
+python-jose[cryptography]
+email-validator
+
+# FILE TYPE DETECTION
+filetype
+
+# VIDEO PROCESSING
+opencv-python
