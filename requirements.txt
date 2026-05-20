@@ -44,3 +44,6 @@ filetype
 
 # VIDEO PROCESSING
 opencv-python
+
+chromadb
+sentence-transformers
