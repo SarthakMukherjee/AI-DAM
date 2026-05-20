@@ -12,14 +12,14 @@ Base.metadata.create_all(bind=engine)
 
 initialize_storage()
 
-app_dam = FastAPI(
+app = FastAPI(
     title="AI DAM SYSTEM"
 )
 
-app_dam.include_router(asset_router)
+app.include_router(asset_router)
 
 
-@app_dam.get("/")
+@app.get("/")
 def root():
     return {
         "message": "AI-DAM SYSTEM RUNNING"
