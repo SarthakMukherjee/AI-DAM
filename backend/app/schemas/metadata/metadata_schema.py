@@ -47,7 +47,7 @@ class AIEnrichmentMetadata(BaseModel):
     ai_tags: Optional[List[str]] = []
     extracted_text: Optional[str] = None
     image_caption: Optional[str] = None
-    detecetd_objects: Optional[List[str]] = []
+    detected_objects: Optional[List[str]] = []
     searchable_tags: Optional[List[str]] = []
     enrichment_status: Optional[str] = ""
 

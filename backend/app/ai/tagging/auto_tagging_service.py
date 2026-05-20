@@ -13,6 +13,7 @@ from groq import Groq
 from app.ai.ocr.ocr_service import OCRService
 from app.ai.tagging.image_tagging_service import ImageTaggingService
 from app.ai.tagging.video_tagging_service import VideoTaggingService
+from app.ai.tagging.pdf_tagging_service import PDFTaggingService
 from app.ai.tagging.tag_cleaner_service import TagCleanerService
 
 from dotenv import load_dotenv
@@ -28,6 +29,8 @@ class AutoTaggingService:
         self.image_service = ImageTaggingService()
 
         self.video_service = VideoTaggingService()
+
+        self.pdf_service = PDFTaggingService()
 
         self.client = Groq(api_key=GROQ_API_KEY)
 
@@ -103,8 +106,6 @@ class AutoTaggingService:
         image_path: str
     ) -> dict:
 
-        # EXTRACTION LAYER
-
         caption = self.image_service.generate_caption(
             image_path
         )
@@ -120,15 +121,11 @@ class AutoTaggingService:
         except Exception:
             extracted_text = ""
 
-        # BUILD CONTEXT
-
         structured_context = {
             "caption": caption,
             "objects": detected_objects,
             "ocr_text": extracted_text
         }
-
-        # LLM INTELLIGENCE
 
         cleaned_tags = self._generate_tags_from_context(
             structured_context
@@ -145,17 +142,12 @@ class AutoTaggingService:
 
     # -----------------------------------
     # VIDEO PIPELINE
-    # samples frames, captions each,
-    # detects objects across all frames,
-    # sends aggregated context to LLM
     # -----------------------------------
 
     def process_video(
         self,
         video_path: str
     ) -> dict:
-
-        # EXTRACTION LAYER
 
         captions = self.video_service.generate_captions(
             video_path
@@ -165,25 +157,17 @@ class AutoTaggingService:
             video_path
         )
 
-        # AGGREGATE CAPTIONS
-        # join all frame captions into one
-        # context string for the LLM
-
         combined_caption = (
             ". ".join(captions)
             if captions
             else ""
         )
 
-        # BUILD CONTEXT
-
         structured_context = {
             "captions": captions,
             "objects": detected_objects,
             "combined_caption": combined_caption
         }
-
-        # LLM INTELLIGENCE
 
         cleaned_tags = self._generate_tags_from_context(
             structured_context
@@ -194,6 +178,54 @@ class AutoTaggingService:
             "image_caption": combined_caption,
             "detected_objects": detected_objects,
             "extracted_text": "",
+            "searchable_tags": cleaned_tags,
+            "enrichment_status": "completed"
+        }
+
+    # -----------------------------------
+    # PDF PIPELINE
+    # extracts text + doc metadata,
+    # sends to LLM for semantic tags
+    # -----------------------------------
+
+    def process_pdf(
+        self,
+        pdf_path: str
+    ) -> dict:
+
+        extracted_text = self.pdf_service.extract_text(
+            pdf_path
+        )
+
+        doc_metadata = self.pdf_service.extract_metadata(
+            pdf_path
+        )
+
+        page_count = self.pdf_service.get_page_count(
+            pdf_path
+        )
+
+        # truncate text to avoid LLM token limits
+        # 3000 chars covers most doc summaries
+
+        structured_context = {
+            "extracted_text": extracted_text[:3000],
+            "title": doc_metadata.get("title", ""),
+            "author": doc_metadata.get("author", ""),
+            "subject": doc_metadata.get("subject", ""),
+            "keywords": doc_metadata.get("keywords", ""),
+            "page_count": page_count
+        }
+
+        cleaned_tags = self._generate_tags_from_context(
+            structured_context
+        )
+
+        return {
+            "ai_tags": cleaned_tags,
+            "image_caption": "",
+            "detected_objects": [],
+            "extracted_text": extracted_text,
             "searchable_tags": cleaned_tags,
             "enrichment_status": "completed"
         }

@@ -36,14 +36,10 @@ class EnrichmentPipeline:
 
         elif asset_type == "pdf":
 
-            return {
-                "ai_tags": [],
-                "image_caption": "",
-                "detected_objects": [],
-                "extracted_text": "",
-                "searchable_tags": [],
-                "enrichment_status": "pdf_pipeline_pending"
-            }
+            return (
+                self.auto_tagging_service
+                .process_pdf(file_path)
+            )
 
         # -----------------------------------
         # VIDEO PIPELINE

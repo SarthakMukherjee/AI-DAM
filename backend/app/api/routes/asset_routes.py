@@ -7,6 +7,7 @@ from fastapi import (
     Form
 )
 
+import os
 import json
 
 from fastapi.responses import FileResponse
@@ -49,6 +50,10 @@ def sanitize_json_string(raw: str) -> str:
     )
 
 
+# -----------------------------------
+# UPLOAD
+# -----------------------------------
+
 @router.post("/upload")
 async def upload_asset(
     file: UploadFile = File(...),
@@ -57,10 +62,6 @@ async def upload_asset(
     parent_id: str = Form(None),
     db: Session = Depends(get_db)
 ):
-
-    # -----------------------------------
-    # PARSE + VALIDATE METADATA
-    # -----------------------------------
 
     try:
 
@@ -96,10 +97,6 @@ async def upload_asset(
             detail=str(excep_errors)
         )
 
-    # -----------------------------------
-    # UPLOAD ASSET
-    # -----------------------------------
-
     asset = await asset_service.upload_asset(
         file=file,
         db=db,
@@ -110,6 +107,10 @@ async def upload_asset(
 
     return asset
 
+
+# -----------------------------------
+# DOWNLOAD
+# -----------------------------------
 
 @router.get("/{asset_id}/download")
 def download_asset(
@@ -134,6 +135,12 @@ def download_asset(
         filename=asset.original_filename
     )
 
+
+# -----------------------------------
+# PREVIEW
+# images/videos: returns thumbnail
+# PDFs: redirects to /pdf-viewer
+# -----------------------------------
 
 @router.get("/{asset_id}/preview")
 def preview_asset(
@@ -165,3 +172,116 @@ def preview_asset(
         )
 
     return FileResponse(preview_path)
+
+
+# -----------------------------------
+# PDF VIEWER
+# serves original PDF inline so the
+# browser renders it natively —
+# no download required
+# -----------------------------------
+
+@router.get("/{asset_id}/pdf-viewer")
+def pdf_viewer(
+    asset_id: str,
+    db: Session = Depends(get_db)
+):
+
+    asset = (
+        db.query(Asset)
+        .filter(Asset.id == asset_id)
+        .first()
+    )
+
+    if not asset:
+        raise HTTPException(
+            status_code=404,
+            detail="Asset not found"
+        )
+
+    if asset.mime_type != "application/pdf":
+        raise HTTPException(
+            status_code=400,
+            detail="Asset is not a PDF"
+        )
+
+    if not asset.storage_path or not os.path.exists(
+        asset.storage_path
+    ):
+        raise HTTPException(
+            status_code=404,
+            detail="PDF file not found on disk"
+        )
+
+    # -----------------------------------
+    # inline disposition = browser opens
+    # attachment disposition = download
+    # -----------------------------------
+
+    return FileResponse(
+        path=asset.storage_path,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": (
+                f"inline; filename={asset.original_filename}"
+            )
+        }
+    )
+
+
+# -----------------------------------
+# PDF PAGE IMAGE
+# serves a specific page as PNG
+# useful for custom page-by-page
+# viewers or thumbnails
+# -----------------------------------
+
+@router.get("/{asset_id}/pdf-viewer/page/{page_num}")
+def pdf_page_image(
+    asset_id: str,
+    page_num: int,
+    db: Session = Depends(get_db)
+):
+
+    asset = (
+        db.query(Asset)
+        .filter(Asset.id == asset_id)
+        .first()
+    )
+
+    if not asset:
+        raise HTTPException(
+            status_code=404,
+            detail="Asset not found"
+        )
+
+    if asset.mime_type != "application/pdf":
+        raise HTTPException(
+            status_code=400,
+            detail="Asset is not a PDF"
+        )
+
+    # -----------------------------------
+    # PAGE IMAGES ARE STORED AS:
+    # previews/{stored_filename}/page_N.png
+    # -----------------------------------
+
+    from app.core.config.settings import settings
+
+    page_path = os.path.join(
+        settings.STORAGE_PATH,
+        "previews",
+        asset.stored_filename,
+        f"page_{page_num}.png"
+    )
+
+    if not os.path.exists(page_path):
+        raise HTTPException(
+            status_code=404,
+            detail=f"Page {page_num} not found"
+        )
+
+    return FileResponse(
+        path=page_path,
+        media_type="image/png"
+    )
