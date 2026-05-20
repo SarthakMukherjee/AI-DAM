@@ -67,7 +67,7 @@ htmlcov/
 # =================================================
 # Storage / Uploaded Assets
 # =================================================
-storage/
+/storage/
 uploads/
 temp/
 tmp/
