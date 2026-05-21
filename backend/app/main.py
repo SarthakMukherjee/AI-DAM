@@ -1,4 +1,11 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
 from app.api.routes.asset_routes import router as asset_router
 from app.api.routes.auth_routes import router as auth_router
@@ -20,8 +27,43 @@ Base.metadata.create_all(bind=engine)
 
 initialize_storage()
 
-app = FastAPI(
-    title="AI DAM SYSTEM"
+# -----------------------------------
+# RATE LIMITER
+# -----------------------------------
+
+limiter = Limiter(key_func=get_remote_address)
+
+app = FastAPI(title="AI DAM SYSTEM")
+
+app.state.limiter = limiter
+
+app.add_exception_handler(
+    RateLimitExceeded,
+    _rate_limit_exceeded_handler
+)
+
+app.add_middleware(SlowAPIMiddleware)
+
+# -----------------------------------
+# CORS
+# locked to frontend origin only
+# credentials=True required for
+# httpOnly cookie to work
+# -----------------------------------
+
+ALLOWED_ORIGINS = [
+    "http://localhost:5173",     # Vite dev
+    "http://localhost:3000",     # fallback
+    # add production domain here later
+    # "https://yourdomain.com"
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=True,      # required for cookies
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # -----------------------------------

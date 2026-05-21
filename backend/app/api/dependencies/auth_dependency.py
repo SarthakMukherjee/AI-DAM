@@ -1,5 +1,4 @@
-from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi import Depends, HTTPException, Request, status
 
 from sqlalchemy.orm import Session
 
@@ -8,37 +7,40 @@ from app.core.security.auth import decode_access_token
 from app.models.user.user_model import User
 
 
-oauth2_scheme = OAuth2PasswordBearer(
-    tokenUrl="/auth/login"
-)
-
-
 # -----------------------------------
 # GET CURRENT USER
-# validates JWT, returns user
-# raises 401 if invalid/expired
+# reads JWT from httpOnly cookie
+# raises 401 if missing/invalid/expired
 # -----------------------------------
 
 def get_current_user(
-    token: str = Depends(oauth2_scheme),
+    request: Request,
     db: Session = Depends(get_db)
 ) -> User:
 
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Invalid or expired token",
-        headers={"WWW-Authenticate": "Bearer"}
-    )
+    token = request.cookies.get("access_token")
+
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated"
+        )
 
     payload = decode_access_token(token)
 
     if payload is None:
-        raise credentials_exception
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token"
+        )
 
     user_id: str = payload.get("sub")
 
     if user_id is None:
-        raise credentials_exception
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload"
+        )
 
     user = (
         db.query(User)
@@ -50,14 +52,16 @@ def get_current_user(
     )
 
     if user is None:
-        raise credentials_exception
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found or deactivated"
+        )
 
     return user
 
 
 # -----------------------------------
 # REQUIRE SUPER ADMIN
-# only super_admin passes
 # -----------------------------------
 
 def require_super_admin(
@@ -112,7 +116,6 @@ def require_reviewer(
 # -----------------------------------
 # REQUIRE ADMIN OR REVIEWER
 # super_admin + admin + reviewer pass
-# used for analytics
 # -----------------------------------
 
 def require_admin_or_reviewer(

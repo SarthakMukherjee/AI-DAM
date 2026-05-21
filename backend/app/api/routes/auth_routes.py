@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from sqlalchemy.orm import Session
 
@@ -11,10 +13,11 @@ from app.models.user.user_model import User
 from app.schemas.user.schemas import (
     RegisterRequest,
     LoginRequest,
-    TokenResponse,
     UserResponse
 )
 
+
+limiter = Limiter(key_func=get_remote_address)
 
 router = APIRouter(
     prefix="/auth",
@@ -24,8 +27,7 @@ router = APIRouter(
 
 # -----------------------------------
 # REGISTER
-# open endpoint — anyone can register
-# default role is "user"
+# 3 requests per minute per IP
 # -----------------------------------
 
 @router.post(
@@ -33,7 +35,9 @@ router = APIRouter(
     response_model=UserResponse,
     status_code=status.HTTP_201_CREATED
 )
+@limiter.limit("3/minute")
 def register(
+    request: Request,
     body: RegisterRequest,
     db: Session = Depends(get_db)
 ):
@@ -66,14 +70,15 @@ def register(
 
 # -----------------------------------
 # LOGIN
-# returns JWT access token
+# 5 requests per minute per IP
+# sets httpOnly cookie with JWT
 # -----------------------------------
 
-@router.post(
-    "/login",
-    response_model=TokenResponse
-)
+@router.post("/login")
+@limiter.limit("5/minute")
 def login(
+    request: Request,
+    response: Response,
     body: LoginRequest,
     db: Session = Depends(get_db)
 ):
@@ -103,10 +108,48 @@ def login(
         data={"sub": user.id, "role": user.role}
     )
 
+    # -----------------------------------
+    # SET httpOnly COOKIE
+    # httponly=True  → JS cannot read it
+    # samesite="lax" → CSRF protection
+    # secure=False   → set True in prod
+    #                  (requires HTTPS)
+    # max_age=3600   → 1 hour (matches JWT)
+    # -----------------------------------
+
+    response.set_cookie(
+        key="access_token",
+        value=token,
+        httponly=True,
+        samesite="lax",
+        secure=False,       # change to True in production
+        max_age=3600
+    )
+
     return {
-        "access_token": token,
-        "token_type": "bearer"
+        "message": "Login successful",
+        "role": user.role,
+        "full_name": user.full_name,
+        "email": user.email,
+        "id": user.id
     }
+
+
+# -----------------------------------
+# LOGOUT
+# clears the httpOnly cookie
+# -----------------------------------
+
+@router.post("/logout")
+def logout(response: Response):
+
+    response.delete_cookie(
+        key="access_token",
+        httponly=True,
+        samesite="lax"
+    )
+
+    return {"message": "Logged out successfully"}
 
 
 # -----------------------------------
