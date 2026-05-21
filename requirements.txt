@@ -24,6 +24,8 @@ python-dotenv
 
 uuid
 
+slowapi
+
 transformers
 torch
 torchvision
