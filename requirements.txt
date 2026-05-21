@@ -19,8 +19,8 @@ ffmpeg-python
 aiofiles
 
 python-dotenv
-python-magic
-python-magic-binary
+# python-magic
+# python-magic-binary
 
 uuid
 
