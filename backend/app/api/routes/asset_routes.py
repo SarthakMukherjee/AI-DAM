@@ -296,3 +296,29 @@ def pdf_page_image(
         raise HTTPException(status_code=404, detail=f"Page {page_num} not found")
 
     return FileResponse(path=page_path, media_type="image/png")
+
+from app.ai.embeddings.semantic_search_service import SemanticSearchService
+
+@router.post("/reindex-all")
+def reindex_all(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin)
+):
+    assets = db.query(Asset).filter(
+        Asset.asset_metadata != None
+    ).all()
+    
+    success, failed = 0, 0
+    for asset in assets:
+        try:
+            SemanticSearchService.index_asset(
+                asset_id=str(asset.id),
+                asset_metadata=asset.asset_metadata,
+                status=asset.status,
+            )
+            success += 1
+        except Exception as e:
+            print(f"Failed to reindex {asset.id}: {e}")
+            failed += 1
+
+    return {"reindexed": success, "failed": failed}

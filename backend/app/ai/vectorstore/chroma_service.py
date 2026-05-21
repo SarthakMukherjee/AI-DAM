@@ -19,4 +19,4 @@ class ChromaService:
                 )
             )
 
-            return cls._client
+        return cls._client
