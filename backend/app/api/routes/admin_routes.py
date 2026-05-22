@@ -20,6 +20,9 @@ from app.schemas.user.schemas import (
     AssetUsageResponse
 )
 
+import os
+import shutil
+
 
 router = APIRouter(
     prefix="/admin",
@@ -48,7 +51,7 @@ def list_all_assets(
 # -----------------------------------
 # DELETE ASSET
 # super_admin + admin
-# hard deletes file and DB record
+# hard deletes file + previews + DB
 # -----------------------------------
 
 @router.delete("/assets/{asset_id}")
@@ -57,8 +60,6 @@ def delete_asset(
     db: Session = Depends(get_db),
     _: User = Depends(require_admin)
 ):
-
-    import os
 
     asset = (
         db.query(Asset)
@@ -72,18 +73,62 @@ def delete_asset(
             detail="Asset not found"
         )
 
-    for path in [
+    # ==========================================
+    # DELETE ANALYTICS / USAGE RECORDS FIRST
+    # ==========================================
+
+    db.query(AssetUsage).filter(
+        AssetUsage.asset_id == asset_id
+    ).delete()
+
+    # ==========================================
+    # DELETE FILES / FOLDERS
+    # ==========================================
+
+    paths_to_delete = [
         asset.storage_path,
         asset.thumbnail_path,
         asset.preview_path
-    ]:
-        if path and os.path.exists(path):
-            os.remove(path)
+    ]
+
+    for path in paths_to_delete:
+
+        if not path:
+            continue
+
+        if os.path.exists(path):
+
+            try:
+
+                # ------------------------------
+                # FILE
+                # ------------------------------
+
+                if os.path.isfile(path):
+                    os.remove(path)
+
+                # ------------------------------
+                # DIRECTORY
+                # ------------------------------
+
+                elif os.path.isdir(path):
+                    shutil.rmtree(path)
+
+            except Exception as e:
+                print(f"Failed deleting path: {path}")
+                print(str(e))
+
+    # ==========================================
+    # DELETE ASSET RECORD
+    # ==========================================
 
     db.delete(asset)
+
     db.commit()
 
-    return {"message": "Asset deleted"}
+    return {
+        "message": "Asset deleted successfully"
+    }
 
 
 # =====================================================
@@ -139,7 +184,9 @@ def mark_notification_read(
 
     db.commit()
 
-    return {"message": "Notification marked as read"}
+    return {
+        "message": "Notification marked as read"
+    }
 
 
 @router.patch("/notifications/read-all")
@@ -159,7 +206,9 @@ def mark_all_read(
 
     db.commit()
 
-    return {"message": "All notifications marked as read"}
+    return {
+        "message": "All notifications marked as read"
+    }
 
 
 # =====================================================
@@ -182,9 +231,9 @@ def most_used_assets(
             Asset.id,
             Asset.original_filename,
             Asset.asset_metadata,
-            func.sum(AssetUsage.usage_count).label(
-                "total_usage"
-            )
+            func.sum(
+                AssetUsage.usage_count
+            ).label("total_usage")
         )
         .join(
             AssetUsage,
@@ -192,7 +241,9 @@ def most_used_assets(
         )
         .group_by(Asset.id)
         .order_by(
-            func.sum(AssetUsage.usage_count).desc()
+            func.sum(
+                AssetUsage.usage_count
+            ).desc()
         )
         .limit(limit)
         .all()
@@ -210,6 +261,7 @@ def most_used_assets(
                 .get("mandatory", {})
                 .get("asset_name", "")
             )
+
         except Exception:
             pass
 
@@ -222,7 +274,9 @@ def most_used_assets(
             )
         )
 
-    return TopAssetsResponse(top_assets=top_assets)
+    return TopAssetsResponse(
+        top_assets=top_assets
+    )
 
 
 @router.get("/analytics/asset/{asset_id}")
@@ -248,17 +302,25 @@ def asset_usage(
         db.query(
             func.sum(AssetUsage.usage_count)
         )
-        .filter(AssetUsage.asset_id == asset_id)
+        .filter(
+            AssetUsage.asset_id == asset_id
+        )
         .scalar()
     ) or 0
 
     by_action = (
         db.query(
             AssetUsage.action,
-            func.sum(AssetUsage.usage_count).label("count")
+            func.sum(
+                AssetUsage.usage_count
+            ).label("count")
         )
-        .filter(AssetUsage.asset_id == asset_id)
-        .group_by(AssetUsage.action)
+        .filter(
+            AssetUsage.asset_id == asset_id
+        )
+        .group_by(
+            AssetUsage.action
+        )
         .all()
     )
 

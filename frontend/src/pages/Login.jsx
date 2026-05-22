@@ -1,5 +1,5 @@
 import { useState, useContext } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import AuthContext from "../context/AuthContext";
 import "../styles/login.css";
 
@@ -13,6 +13,8 @@ const ROLE_HOME = {
 const Login = () => {
   const { login } = useContext(AuthContext);
   const navigate = useNavigate();
+  const location = useLocation();
+  const successMessage = location.state?.message;
 
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
@@ -91,6 +93,10 @@ const Login = () => {
                 required
               />
             </div>
+
+            {successMessage && (
+              <div className="auth-success">{successMessage}</div>
+            )}
 
             {error && <div className="auth-error">{error}</div>}
 

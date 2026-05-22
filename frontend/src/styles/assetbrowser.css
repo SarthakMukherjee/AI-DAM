@@ -1,0 +1,195 @@
+/* -----------------------------------
+   BROWSER PAGE
+----------------------------------- */
+
+.browser-page {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+/* -----------------------------------
+   HEADER
+----------------------------------- */
+
+.browser-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.browser-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 0.25rem;
+}
+
+.browser-subtitle {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+}
+
+/* -----------------------------------
+   SEARCH
+----------------------------------- */
+
+.browser-search {
+  display: flex;
+  gap: 0.5rem;
+  flex: 1;
+  max-width: 460px;
+}
+
+.browser-search-input {
+  flex: 1;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 0.6rem 1rem;
+  color: var(--text-primary);
+  font-size: 0.88rem;
+  outline: none;
+  transition: border-color var(--transition);
+}
+
+.browser-search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.browser-search-input:focus {
+  border-color: var(--accent);
+}
+
+.browser-search-btn {
+  background: var(--accent);
+  color: #fff;
+  border-radius: var(--radius-md);
+  padding: 0.6rem 1.2rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  transition: background var(--transition);
+  white-space: nowrap;
+}
+
+.browser-search-btn:hover {
+  background: var(--accent-hover);
+}
+
+/* -----------------------------------
+   SECTIONS
+----------------------------------- */
+
+.browser-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.browser-section-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* -----------------------------------
+   MOST USED — horizontal scroll
+----------------------------------- */
+
+.browser-most-used {
+  display: flex;
+  gap: 0.75rem;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+  scrollbar-width: thin;
+}
+
+.most-used-card {
+  flex-shrink: 0;
+  width: 160px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  cursor: pointer;
+  transition:
+    border-color var(--transition),
+    transform var(--transition);
+}
+
+.most-used-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+
+.most-used-thumb {
+  height: 100px;
+  background: var(--bg-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.most-used-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.most-used-placeholder {
+  font-size: 2rem;
+  opacity: 0.3;
+}
+
+.most-used-info {
+  padding: 0.5rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.most-used-name {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.most-used-count {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+/* -----------------------------------
+   ASSET GRID
+----------------------------------- */
+
+.browser-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+/* -----------------------------------
+   RESPONSIVE
+----------------------------------- */
+
+@media (max-width: 768px) {
+  .browser-header {
+    flex-direction: column;
+  }
+
+  .browser-search {
+    max-width: 100%;
+    width: 100%;
+  }
+
+  .browser-grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  }
+}

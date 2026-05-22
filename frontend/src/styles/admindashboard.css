@@ -1,0 +1,155 @@
+/* -----------------------------------
+   ADMIN PAGE
+----------------------------------- */
+
+.admin-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+/* -----------------------------------
+   HEADER
+----------------------------------- */
+
+.admin-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.admin-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 0.25rem;
+}
+
+.admin-subtitle {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+}
+
+/* -----------------------------------
+   STATS ROW
+----------------------------------- */
+
+.admin-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+}
+
+.stat-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.stat-card--warning {
+  border-color: rgba(245, 158, 11, 0.3);
+  background: var(--warning-soft);
+}
+
+.stat-card--success {
+  border-color: rgba(34, 197, 94, 0.3);
+  background: var(--success-soft);
+}
+
+.stat-card--danger {
+  border-color: rgba(239, 68, 68, 0.3);
+  background: var(--danger-soft);
+}
+
+.stat-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+.stat-card--warning .stat-value {
+  color: var(--warning);
+}
+.stat-card--success .stat-value {
+  color: var(--success);
+}
+.stat-card--danger .stat-value {
+  color: var(--danger);
+}
+
+.stat-label {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* -----------------------------------
+   FILTER TABS
+----------------------------------- */
+
+.admin-filters {
+  display: flex;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.75rem;
+}
+
+.filter-tab {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 1rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition: all var(--transition);
+}
+
+.filter-tab:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.filter-tab--active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.filter-count {
+  background: var(--bg-hover);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  padding: 1px 6px;
+  border-radius: 999px;
+  min-width: 20px;
+  text-align: center;
+}
+
+.filter-tab--active .filter-count {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* -----------------------------------
+   RESPONSIVE
+----------------------------------- */
+
+@media (max-width: 768px) {
+  .admin-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .admin-filters {
+    overflow-x: auto;
+    padding-bottom: 0.5rem;
+  }
+}

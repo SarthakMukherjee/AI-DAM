@@ -1,88 +1,10 @@
-# from fastapi import FastAPI, Request
-# from fastapi.middleware.cors import CORSMiddleware
-# from fastapi.responses import JSONResponse
-
-# from slowapi import Limiter, _rate_limit_exceeded_handler
-# from slowapi.util import get_remote_address
-# from slowapi.errors import RateLimitExceeded
-# from slowapi.middleware import SlowAPIMiddleware
-
-# from app.api.routes.asset_routes import router as asset_router
-# from app.api.routes.auth_routes import router as auth_router
-# from app.api.routes.admin_routes import router as admin_router
-# from app.api.routes.reviewer_routes import router as reviewer_router
-# from app.api.routes.super_admin_routes import router as super_admin_router
-
-# from app.db.session.database import Base, engine
-
-# from app.services.storage.storage_initializer import (
-#     initialize_storage
-# )
-
-# # -----------------------------------
-# # CREATE ALL TABLES
-# # -----------------------------------
-
-# Base.metadata.create_all(bind=engine)
-
-# initialize_storage()
-
-# # -----------------------------------
-# # RATE LIMITER
-# # -----------------------------------
-
-# limiter = Limiter(key_func=get_remote_address)
-
-# app = FastAPI(title="AI DAM SYSTEM")
-
-# app.state.limiter = limiter
-
-# app.add_exception_handler(
-#     RateLimitExceeded,
-#     _rate_limit_exceeded_handler
-# )
-
-# app.add_middleware(SlowAPIMiddleware)
-
-# # -----------------------------------
-# # CORS
-# # locked to frontend origin only
-# # credentials=True required for
-# # httpOnly cookie to work
-# # -----------------------------------
-
-# ALLOWED_ORIGINS = [
-#     "http://localhost:5173",     # Vite dev
-#     "http://localhost:3000",     # fallback
-#     # add production domain here later
-#     # "https://yourdomain.com"
-# ]
-
-# app.add_middleware(
-#     CORSMiddleware,
-#     allow_origins=ALLOWED_ORIGINS,
-#     allow_credentials=True,      # required for cookies
-#     allow_methods=["*"],
-#     allow_headers=["*"],
-# )
-
-# # -----------------------------------
-# # ROUTERS
-# # -----------------------------------
-
-# app.include_router(auth_router)
-# app.include_router(asset_router)
-# app.include_router(admin_router)
-# app.include_router(reviewer_router)
-# app.include_router(super_admin_router)
-
-
-# @app.get("/")
-# def root():
-#     return {
-#         "message": "AI-DAM SYSTEM RUNNING"
-#     }
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
 from app.api.routes.asset_routes import router as asset_router
 from app.api.routes.auth_routes import router as auth_router
@@ -92,7 +14,6 @@ from app.api.routes.super_admin_routes import router as super_admin_router
 from app.api.routes.search_routes import router as search_router
 
 from app.db.session.database import Base, engine
-
 from app.services.storage.storage_initializer import initialize_storage
 
 # -----------------------------------
@@ -104,11 +25,40 @@ Base.metadata.create_all(bind=engine)
 initialize_storage()
 
 # -----------------------------------
-# APP INIT
+# RATE LIMITER
 # -----------------------------------
 
-app = FastAPI(
-    title="AI DAM SYSTEM"
+limiter = Limiter(key_func=get_remote_address)
+
+app = FastAPI(title="AI DAM SYSTEM")
+
+app.state.limiter = limiter
+
+app.add_exception_handler(
+    RateLimitExceeded,
+    _rate_limit_exceeded_handler
+)
+
+app.add_middleware(SlowAPIMiddleware)
+
+# -----------------------------------
+# CORS
+# locked to frontend origin only
+# credentials=True required for
+# httpOnly cookie to work
+# -----------------------------------
+
+ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://localhost:3000",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # -----------------------------------
