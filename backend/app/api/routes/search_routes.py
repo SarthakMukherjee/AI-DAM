@@ -164,26 +164,41 @@
 #   POST /api/assets/search              — text-based semantic search
 #   POST /api/assets/search/file         — file upload semantic search
 #   POST /api/assets/{asset_id}/reindex  — reindex a single asset (Admin only)
+# =================================================================================================================
 
-import json
 
-from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form
+
+# import json
+import traceback
+
+from fastapi import (
+    APIRouter, 
+    HTTPException, 
+    Depends
+    )
+# , UploadFile, File, Form
+
 from sqlalchemy.orm import Session
 
-# from app.core.db import get_db
-from app.api.dependencies.database import get_db
+from app.api.dependencies.database import (
+    get_db
+)
+
 from app.models.asset.asset_model import Asset
 
-from app.ai.embeddings.semantic_search_service import SemanticSearchService
+# from app.ai.retrieval.semantic_search_service import SemanticSearchService
+
+from app.ai.retrieval.semantic_search_service import SemanticSearchService
 from app.ai.embeddings.file_search_service import FileSearchService
 
 from app.schemas.search_schema import (
     SemanticSearchRequest,
     SemanticSearchResponse,
-    SemanticSearchResult,
-    FileSearchResponse,
-    FileSearchResult,
+    SemanticSearchResult
 )
+#     FileSearchResponse,
+#     FileSearchResult,
+# )
 
 router = APIRouter(
     prefix="/api/assets",
@@ -207,22 +222,51 @@ router = APIRouter(
 )
 async def semantic_search(
     body: SemanticSearchRequest,
+    db:Session = Depends(get_db)
 ):
+    """
+    FLOW:
+
+    User Query
+        ↓
+    Query Embedding Generation
+        ↓
+    ChromaDB Semantic Similarity Search
+        ↓
+    Matching Asset IDs
+        ↓
+    PostgreSQL Asset Fetch
+        ↓
+    Merge Similarity + Asset Data
+        ↓
+    Frontend Ready Results
+    """
+
+
     try:
-        raw_results = SemanticSearchService.search(
+        raw_results = (
+            SemanticSearchService.search(
+            db=db,
             query=body.query,
             limit=body.limit,
             approved_only=body.approved_only,
-            filters=body.filters,
-        )
+            # filters=body.filters,
+        ))
 
     except Exception as e:
+
+        print("SEMANTIC SEARCH ERROR")
+        traceback.print_exc()
+        print("=======================================")
+        
         raise HTTPException(
             status_code=500,
             detail=f"Semantic search failed: {str(e)}"
         )
+    
+    # RESPONSE FORMATTING
 
-    results = [SemanticSearchResult(**r) for r in raw_results]
+    results = [SemanticSearchResult(**results) for results in raw_results]
 
     return SemanticSearchResponse(
         query=body.query,
@@ -236,120 +280,120 @@ async def semantic_search(
 # File upload semantic search
 # ---------------------------------------------------------------------------
 
-@router.post(
-    "/search/file",
-    response_model=FileSearchResponse,
-    summary="File Semantic Search",
-    description=(
-        "Upload an image, PDF, or video to find similar assets in the DAM. "
-        "The file is processed through the AI enrichment pipeline "
-        "(same as upload) to extract tags, then matched against stored vectors. "
-        "The uploaded file is NOT stored — it is only used for search."
-    ),
-)
-async def search_by_file(
-    file: UploadFile = File(
-        ...,
-        description="Image (jpg/png/webp/gif), PDF, or Video (mp4/mov/avi/mkv/webm)"
-    ),
-    limit: int = Form(
-        default=10,
-        ge=1,
-        le=50,
-        description="Max results to return"
-    ),
-    approved_only: bool = Form(
-        default=True,
-        description="Only return approved assets"
-    ),
-    filters: str = Form(
-        default=None,
-        description=(
-            "Optional JSON string of metadata filters. "
-            "e.g. '{\"asset_type\": \"banner\", \"domain\": \"ai_services\"}'"
-        )
-    ),
-):
-    """
-    File-based semantic search.
+# @router.post(
+#     "/search/file",
+#     response_model=FileSearchResponse,
+#     summary="File Semantic Search",
+#     description=(
+#         "Upload an image, PDF, or video to find similar assets in the DAM. "
+#         "The file is processed through the AI enrichment pipeline "
+#         "(same as upload) to extract tags, then matched against stored vectors. "
+#         "The uploaded file is NOT stored — it is only used for search."
+#     ),
+# )
+# async def search_by_file(
+#     file: UploadFile = File(
+#         ...,
+#         description="Image (jpg/png/webp/gif), PDF, or Video (mp4/mov/avi/mkv/webm)"
+#     ),
+#     limit: int = Form(
+#         default=10,
+#         ge=1,
+#         le=50,
+#         description="Max results to return"
+#     ),
+#     approved_only: bool = Form(
+#         default=True,
+#         description="Only return approved assets"
+#     ),
+#     filters: str = Form(
+#         default=None,
+#         description=(
+#             "Optional JSON string of metadata filters. "
+#             "e.g. '{\"asset_type\": \"banner\", \"domain\": \"ai_services\"}'"
+#         )
+#     ),
+# ):
+#     """
+#     File-based semantic search.
 
-    How it works:
-    1. Uploaded file runs through the AI enrichment pipeline
-       (caption, object detection, OCR/text extraction, LLM tagging)
-    2. Extracted tags are embedded into a vector
-    3. Vector is matched against all stored asset vectors in ChromaDB
-    4. Most similar assets are returned ranked by relevance score
+#     How it works:
+#     1. Uploaded file runs through the AI enrichment pipeline
+#        (caption, object detection, OCR/text extraction, LLM tagging)
+#     2. Extracted tags are embedded into a vector
+#     3. Vector is matched against all stored asset vectors in ChromaDB
+#     4. Most similar assets are returned ranked by relevance score
 
-    The uploaded file is processed in memory and deleted immediately —
-    it is never stored in the DAM.
+#     The uploaded file is processed in memory and deleted immediately —
+#     it is never stored in the DAM.
 
-    Supported formats:
-    - Images: jpg, jpeg, png, webp, gif
-    - Documents: pdf
-    - Videos: mp4, mov, avi, mkv, webm
-    """
+#     Supported formats:
+#     - Images: jpg, jpeg, png, webp, gif
+#     - Documents: pdf
+#     - Videos: mp4, mov, avi, mkv, webm
+#     """
 
-    # Parse filters from JSON string (Form data can't send dicts directly)
-    parsed_filters = None
-    if filters:
-        try:
-            parsed_filters = json.loads(filters)
-        except json.JSONDecodeError:
-            raise HTTPException(
-                status_code=400,
-                detail="filters must be a valid JSON string"
-            )
+#     # Parse filters from JSON string (Form data can't send dicts directly)
+#     parsed_filters = None
+#     if filters:
+#         try:
+#             parsed_filters = json.loads(filters)
+#         except json.JSONDecodeError:
+#             raise HTTPException(
+#                 status_code=400,
+#                 detail="filters must be a valid JSON string"
+#             )
 
-    # Read file bytes
-    try:
-        file_bytes = await file.read()
-    except Exception as e:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Failed to read uploaded file: {str(e)}"
-        )
+#     # Read file bytes
+#     try:
+#         file_bytes = await file.read()
+#     except Exception as e:
+#         raise HTTPException(
+#             status_code=400,
+#             detail=f"Failed to read uploaded file: {str(e)}"
+#         )
 
-    if not file_bytes:
-        raise HTTPException(
-            status_code=400,
-            detail="Uploaded file is empty"
-        )
+#     if not file_bytes:
+#         raise HTTPException(
+#             status_code=400,
+#             detail="Uploaded file is empty"
+#         )
 
-    # Run file search pipeline
-    try:
-        search_service = FileSearchService()
+#     # Run file search pipeline
+#     try:
+#         search_service = FileSearchService()
 
-        result = search_service.search_by_file(
-            file_bytes=file_bytes,
-            filename=file.filename,
-            limit=limit,
-            approved_only=approved_only,
-            filters=parsed_filters,
-        )
+#         result = search_service.search_by_file(
+#             file_bytes=file_bytes,
+#             filename=file.filename,
+#             limit=limit,
+#             approved_only=approved_only,
+#             filters=parsed_filters,
+#         )
 
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"File search failed: {str(e)}"
-        )
+#     except Exception as e:
+#         raise HTTPException(
+#             status_code=500,
+#             detail=f"File search failed: {str(e)}"
+#         )
 
-    # Handle unsupported file type
-    if result.get("error"):
-        raise HTTPException(
-            status_code=422,
-            detail=result["error"]
-        )
+#     # Handle unsupported file type
+#     if result.get("error"):
+#         raise HTTPException(
+#             status_code=422,
+#             detail=result["error"]
+#         )
 
-    results = [FileSearchResult(**r) for r in result["results"]]
+#     results = [FileSearchResult(**r) for r in result["results"]]
 
-    return FileSearchResponse(
-        filename=result["filename"],
-        extracted_tags=result["enrichment"].get("ai_tags", []),
-        extracted_text=result["enrichment"].get("extracted_text", ""),
-        image_caption=result["enrichment"].get("image_caption", ""),
-        total=result["total"],
-        results=results,
-    )
+#     return FileSearchResponse(
+#         filename=result["filename"],
+#         extracted_tags=result["enrichment"].get("ai_tags", []),
+#         extracted_text=result["enrichment"].get("extracted_text", ""),
+#         image_caption=result["enrichment"].get("image_caption", ""),
+#         total=result["total"],
+#         results=results,
+#     )
 
 
 # ---------------------------------------------------------------------------

@@ -133,17 +133,23 @@ class SemanticSearchResult(BaseModel):
 
     asset_id: str
     score: float = Field(description="Relevance score 0-1, higher is better")
-    asset_name: str
-    asset_type: str
-    domain: str
-    use_case: str
-    audience: str
-    funnel_stage: str
-    tone: str
-    owner: str
+
+    # POSTGRES DATA
+
+    original_filename: str
+
+    storage_path: str
+
+    thumbnail_path: Optional[str] = None
+
+    preview_path: Optional[str] = None
+
+    mime_type: str
+
     status: str
-    ai_tags: List[str]
-    image_caption: str
+
+    # FULL METADATA
+    asset_metadata: dict
 
 
 class SemanticSearchResponse(BaseModel):
@@ -159,50 +165,50 @@ class SemanticSearchResponse(BaseModel):
 # (request is multipart/form-data — defined via FastAPI Form params)
 # ---------------------------------------------------------------------------
 
-class FileSearchResult(BaseModel):
-    """Single asset result from file search."""
+# class FileSearchResult(BaseModel):
+#     """Single asset result from file search."""
 
-    asset_id: str
-    score: float = Field(description="Relevance score 0-1, higher is better")
-    asset_name: str
-    asset_type: str
-    domain: str
-    use_case: str
-    audience: str
-    funnel_stage: str
-    tone: str
-    owner: str
-    status: str
-    ai_tags: List[str]
-    image_caption: str
+#     asset_id: str
+#     score: float = Field(description="Relevance score 0-1, higher is better")
+#     asset_name: str
+#     asset_type: str
+#     domain: str
+#     use_case: str
+#     audience: str
+#     funnel_stage: str
+#     tone: str
+#     owner: str
+#     status: str
+#     ai_tags: List[str]
+#     image_caption: str
 
 
-class FileSearchResponse(BaseModel):
-    """
-    Response for POST /api/assets/search/file
+# class FileSearchResponse(BaseModel):
+#     """
+#     Response for POST /api/assets/search/file
 
-    Includes what the AI extracted from the uploaded file
-    so the user can see why these results were returned.
-    """
+#     Includes what the AI extracted from the uploaded file
+#     so the user can see why these results were returned.
+#     """
 
-    filename: str = Field(description="Name of the uploaded search file")
+#     filename: str = Field(description="Name of the uploaded search file")
 
-    extracted_tags: List[str] = Field(
-        description="AI tags extracted from the uploaded file"
-    )
+#     extracted_tags: List[str] = Field(
+#         description="AI tags extracted from the uploaded file"
+#     )
 
-    extracted_text: str = Field(
-        default="",
-        description="Text extracted from the file (OCR / PDF text)"
-    )
+#     extracted_text: str = Field(
+#         default="",
+#         description="Text extracted from the file (OCR / PDF text)"
+#     )
 
-    image_caption: str = Field(
-        default="",
-        description="Caption generated for images/videos"
-    )
+#     image_caption: str = Field(
+#         default="",
+#         description="Caption generated for images/videos"
+#     )
 
-    total: int = Field(description="Number of matching assets found")
+#     total: int = Field(description="Number of matching assets found")
 
-    results: List[FileSearchResult] = Field(
-        description="Matching assets ranked by similarity score"
-    )
+#     results: List[FileSearchResult] = Field(
+#         description="Matching assets ranked by similarity score"
+#     )
