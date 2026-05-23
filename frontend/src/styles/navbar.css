@@ -37,9 +37,7 @@
   border-radius: var(--radius-sm);
   color: var(--text-secondary);
   font-size: 1.1rem;
-  transition:
-    background var(--transition),
-    color var(--transition);
+  transition: background var(--transition), color var(--transition);
   flex-shrink: 0;
 }
 
@@ -152,4 +150,11 @@
   .navbar-brand-name {
     display: none;
   }
+}
+
+/* -----------------------------------
+   FIX — allow dropdown to overflow
+----------------------------------- */
+.navbar {
+  overflow: visible !important;
 }

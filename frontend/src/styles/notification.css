@@ -1,9 +1,11 @@
 /* -----------------------------------
-   ADD THESE TO THE BOTTOM OF navbar.css
+   NOTIFICATION BELL
 ----------------------------------- */
 
 .notif-wrapper {
   position: relative;
+  display: flex;
+  align-items: center;
 }
 
 .notif-bell {
@@ -17,6 +19,7 @@
   font-size: 1rem;
   color: var(--text-secondary);
   transition: background var(--transition);
+  cursor: pointer;
 }
 
 .notif-bell:hover {
@@ -37,18 +40,25 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  pointer-events: none;
 }
+
+/* -----------------------------------
+   DROPDOWN
+   positioned relative to bell wrapper
+   fixed z-index so it floats above all
+----------------------------------- */
 
 .notif-dropdown {
   position: absolute;
-  top: calc(100% + 8px);
+  top: calc(100% + 10px);
   right: 0;
-  width: 320px;
+  width: 300px;
   background: var(--bg-tertiary);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-lg);
-  z-index: 200;
+  z-index: 9999;
   overflow: hidden;
 }
 
@@ -67,6 +77,7 @@
   font-size: 0.75rem;
   color: var(--accent);
   font-weight: 500;
+  cursor: pointer;
 }
 
 .notif-clear:hover {
@@ -74,7 +85,7 @@
 }
 
 .notif-list {
-  max-height: 320px;
+  max-height: 300px;
   overflow-y: auto;
 }
 
@@ -114,6 +125,7 @@
   color: var(--danger);
   align-self: flex-end;
   margin-top: 0.2rem;
+  cursor: pointer;
 }
 
 .notif-dismiss:hover {

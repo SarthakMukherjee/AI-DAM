@@ -1,0 +1,133 @@
+.um-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+.um-table-wrapper {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  overflow-x: auto;
+}
+
+.um-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.um-table th {
+  padding: 0.85rem 1.25rem;
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  white-space: nowrap;
+}
+
+.um-table td {
+  padding: 0.85rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-primary);
+  vertical-align: middle;
+}
+
+.um-table tr:last-child td {
+  border-bottom: none;
+}
+
+.um-table tr:hover td {
+  background: var(--bg-hover);
+}
+
+.um-row--inactive td {
+  opacity: 0.5;
+}
+
+.um-user-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.um-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font-size: 0.75rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.um-fullname {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.um-email {
+  color: var(--text-secondary);
+}
+
+.um-date {
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.um-role-select {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.3rem 0.6rem;
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  outline: none;
+  cursor: pointer;
+  transition: border-color var(--transition);
+}
+
+.um-role-select:focus {
+  border-color: var(--accent);
+}
+
+.um-btn {
+  padding: 0.35rem 0.85rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.78rem;
+  font-weight: 600;
+  transition: all var(--transition);
+  white-space: nowrap;
+}
+
+.um-btn--deactivate {
+  background: var(--danger-soft);
+  color: var(--danger);
+  border: 1px solid rgba(239,68,68,0.3);
+}
+
+.um-btn--deactivate:hover {
+  background: var(--danger);
+  color: #fff;
+}
+
+.um-btn--activate {
+  background: var(--success-soft);
+  color: var(--success);
+  border: 1px solid rgba(34,197,94,0.3);
+}
+
+.um-btn--activate:hover {
+  background: var(--success);
+  color: #fff;
+}
