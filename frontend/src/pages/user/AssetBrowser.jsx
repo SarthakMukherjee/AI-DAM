@@ -7,7 +7,7 @@ import "../../styles/assetbrowser.css";
 
 const AssetBrowser = () => {
   const [assets, setAssets] = useState([]);
-  const [mostUsed, setMostUsed] = useState([]);
+  // const [mostUsed, setMostUsed] = useState([]);
   const [selectedAsset, setSelectedAsset] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState(null); // null = no search done yet
@@ -38,18 +38,18 @@ const AssetBrowser = () => {
   // silently fails for regular users
   // -----------------------------------
 
-  useEffect(() => {
-    const fetchMostUsed = async () => {
-      try {
-        const res = await api.get("/admin/analytics/most-used?limit=6");
-        setMostUsed(res.data.top_assets || []);
-      } catch {
-        setMostUsed([]);
-      }
-    };
+  // useEffect(() => {
+  //   const fetchMostUsed = async () => {
+  //     try {
+  //       const res = await api.get("/admin/analytics/most-used?limit=6");
+  //       setMostUsed(res.data.top_assets || []);
+  //     } catch {
+  //       setMostUsed([]);
+  //     }
+  //   };
 
-    fetchMostUsed();
-  }, []);
+  //   fetchMostUsed();
+  // }, []);
 
   // -----------------------------------
   // SEMANTIC SEARCH
@@ -93,7 +93,6 @@ const AssetBrowser = () => {
         total: res.data.total,
         assets: mapped,
       });
-
     } catch {
       setSearchResults({ query: searchQuery, total: 0, assets: [] });
     } finally {
@@ -116,7 +115,6 @@ const AssetBrowser = () => {
   return (
     <UserLayout>
       <div className="browser-page">
-
         {/* PAGE HEADER */}
         <div className="browser-header">
           <div>
@@ -149,13 +147,20 @@ const AssetBrowser = () => {
               className="browser-search-btn"
               disabled={searchLoading}
             >
-              {searchLoading ? <span className="btn-loader" style={{ width: 14, height: 14, borderWidth: 2 }} /> : "Search"}
+              {searchLoading ? (
+                <span
+                  className="btn-loader"
+                  style={{ width: 14, height: 14, borderWidth: 2 }}
+                />
+              ) : (
+                "Search"
+              )}
             </button>
           </form>
         </div>
 
         {/* MOST USED — only shown when not searching */}
-        {!isSearchMode && mostUsed.length > 0 && (
+        {/* {!isSearchMode && mostUsed.length > 0 && (
           <section className="browser-section">
             <h2 className="browser-section-title">🔥 Most Used Assets</h2>
             <div className="browser-most-used">
@@ -176,9 +181,11 @@ const AssetBrowser = () => {
                         />
                       ) : (
                         <div className="most-used-placeholder">
-                          {asset.mime_type?.startsWith("video/") ? "🎬"
-                            : asset.mime_type === "application/pdf" ? "📄"
-                            : "🖼️"}
+                          {asset.mime_type?.startsWith("video/")
+                            ? "🎬"
+                            : asset.mime_type === "application/pdf"
+                              ? "📄"
+                              : "🖼️"}
                         </div>
                       )}
                     </div>
@@ -199,14 +206,14 @@ const AssetBrowser = () => {
 
         {/* RESULTS SECTION */}
         <section className="browser-section">
-
           {isSearchMode ? (
             <div className="browser-search-header">
               <h2 className="browser-section-title">
                 Search results for "{searchResults.query}"
               </h2>
               <span className="browser-search-count">
-                {searchResults.total} result{searchResults.total !== 1 ? "s" : ""}
+                {searchResults.total} result
+                {searchResults.total !== 1 ? "s" : ""}
               </span>
             </div>
           ) : (
@@ -219,7 +226,9 @@ const AssetBrowser = () => {
             </div>
           ) : displayAssets.length === 0 ? (
             <div className="empty-state">
-              <h3>{isSearchMode ? "No results found" : "No assets available"}</h3>
+              <h3>
+                {isSearchMode ? "No results found" : "No assets available"}
+              </h3>
               <p>
                 {isSearchMode
                   ? "Try a different search query."
@@ -238,9 +247,7 @@ const AssetBrowser = () => {
               ))}
             </div>
           )}
-
         </section>
-
       </div>
 
       {selectedAsset && (
@@ -249,7 +256,6 @@ const AssetBrowser = () => {
           onClose={() => setSelectedAsset(null)}
         />
       )}
-
     </UserLayout>
   );
 };

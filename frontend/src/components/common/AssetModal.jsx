@@ -35,6 +35,21 @@ const AssetModal = ({ asset, onClose, onDelete, showDelete }) => {
   }, [onClose]);
 
   const handleDownload = async () => {
+    const isCloudUrl = asset.storage_path?.startsWith("http");
+
+    if (isCloudUrl) {
+      // open Cloudinary URL directly — no axios needed
+      const link = document.createElement("a");
+      link.href = asset.storage_path;
+      link.setAttribute("download", asset.original_filename);
+      link.target = "_blank";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      return;
+    }
+
+    // local file — use axios through backend
     try {
       const res = await api.get(`/assets/${asset.id}/download`, {
         responseType: "blob",

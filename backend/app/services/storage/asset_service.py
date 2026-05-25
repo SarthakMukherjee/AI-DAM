@@ -65,6 +65,7 @@ class AssetService:
 
         if existing_asset and not parent_id:
             self.storage_service.delete_temp_file(temp_path)
+
             raise HTTPException(
                 status_code=409,
                 detail="Duplicate asset already exists"
@@ -75,6 +76,7 @@ class AssetService:
         # =====================================================
 
         mime_type = detect_mime_type(temp_path)
+
         validate_mime_type(mime_type)
 
         # =====================================================
@@ -90,16 +92,21 @@ class AssetService:
 
         # =====================================================
         # STEP 6 — UPLOAD ORIGINAL TO CLOUDINARY
-        # falls back to local path if upload fails
         # =====================================================
 
         asset_id_temp = filename.split(".")[0]
 
         # determine resource type for cloudinary
-        if mime_type.startswith("image/"):
+
+        if mime_type == "application/pdf":
             resource_type = "image"
+
+        elif mime_type.startswith("image/"):
+            resource_type = "image"
+
         elif mime_type.startswith("video/"):
             resource_type = "video"
+
         else:
             resource_type = "raw"
 
@@ -111,6 +118,7 @@ class AssetService:
         )
 
         # use cloud URL if available, local path as fallback
+
         storage_path = cloud_url or original_path
 
         # =====================================================
@@ -131,12 +139,14 @@ class AssetService:
             )
 
             if local_thumb:
+
                 cloud_thumb = CloudService.upload(
                     file_path=local_thumb,
                     public_id=f"thumbnails/{asset_id_temp}",
                     resource_type="image",
                     folder="ai-dam"
                 )
+
                 thumbnail_path = cloud_thumb or local_thumb
 
         elif mime_type == "application/pdf":
@@ -150,12 +160,14 @@ class AssetService:
             )
 
             if local_preview:
+
                 cloud_preview = CloudService.upload(
                     file_path=local_preview,
                     public_id=f"previews/{asset_id_temp}_page1",
                     resource_type="image",
                     folder="ai-dam"
                 )
+
                 preview_path = cloud_preview or local_preview
 
         elif mime_type.startswith("video"):
@@ -169,12 +181,14 @@ class AssetService:
             )
 
             if local_preview:
+
                 cloud_preview = CloudService.upload(
                     file_path=local_preview,
                     public_id=f"previews/{asset_id_temp}_thumb",
                     resource_type="image",
                     folder="ai-dam"
                 )
+
                 preview_path = cloud_preview or local_preview
 
         # =====================================================
@@ -196,8 +210,11 @@ class AssetService:
             )
 
             if old_asset:
+
                 old_asset.is_latest = False
+
                 version = old_asset.version + 1
+
                 root_asset_id = (
                     old_asset.root_asset_id
                     or old_asset.id
@@ -225,12 +242,14 @@ class AssetService:
         )
 
         db.add(asset)
+
         db.flush()
 
         if not asset.root_asset_id:
             asset.root_asset_id = asset.id
 
         db.commit()
+
         db.refresh(asset)
 
         # =====================================================
@@ -238,6 +257,7 @@ class AssetService:
         # =====================================================
 
         try:
+
             file_extension = filename.split(".")[-1].lower()
 
             ai_metadata = self.enrichment_pipeline.process_asset(
@@ -246,13 +266,17 @@ class AssetService:
             )
 
             existing_metadata = dict(asset.asset_metadata or {})
+
             existing_metadata["ai_enrichment"] = ai_metadata
+
             asset.asset_metadata = existing_metadata
 
             db.commit()
+
             db.refresh(asset)
 
         except Exception as e:
+
             print(f"AI Enrichment failed: {e}")
 
         return asset
