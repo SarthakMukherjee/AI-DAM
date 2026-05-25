@@ -432,8 +432,15 @@ class BaseSearchResult(BaseModel):
 
 class SemanticSearchRequest(BaseModel):
     query:         str  = Field(..., min_length=1, max_length=500)
-    limit:         int  = Field(default=10, ge=1, le=50)
+    # limit:         int  = Field(default=10, ge=1, le=50)
     approved_only: bool = Field(default=True)
+    filters: Optional[dict] = Field(
+        default = None,
+        description=(
+            "Optional metadata filters "
+            "(domain, audience, use_case, asset_type)"
+        )
+    )
 
 
 class SemanticSearchResult(BaseSearchResult):

@@ -11,7 +11,8 @@ class RetrievalPipeline:
 
     def semantic_search(
             query: str,
-            limit: int = 5
+            limit: int = 5,
+            where: dict | None = None
     ):
         
         # Query Embedding
@@ -25,7 +26,8 @@ class RetrievalPipeline:
         results = (
             VectorQueryService.semantic_search(
             query_embedding,
-            limit=limit
+            limit=limit,
+            where=where
         )
         )
 

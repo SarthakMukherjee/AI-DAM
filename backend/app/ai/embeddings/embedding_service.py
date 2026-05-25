@@ -17,6 +17,6 @@ class EmbeddingService:
         
         model = cls.get_model()
 
-        embedding = model.encode(text)
+        embedding = model.encode(text, normalize_embeddings=True)
 
         return embedding.tolist()
