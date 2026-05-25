@@ -43,8 +43,8 @@ class HybridSearchService:
 
         # 2. SEMANTIC — ChromaDB + PostgreSQL
         semantic_results = SemanticSearchService.search(
-            db=db,
             query=query,
+            db=db,
             limit=fetch_limit,
             approved_only=approved_only,
         )
