@@ -7,10 +7,9 @@ import "../../styles/assetbrowser.css";
 
 const AssetBrowser = () => {
   const [assets, setAssets] = useState([]);
-  // const [mostUsed, setMostUsed] = useState([]);
   const [selectedAsset, setSelectedAsset] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState(null); // null = no search done yet
+  const [searchResults, setSearchResults] = useState(null);
   const [searchLoading, setSearchLoading] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -29,30 +28,12 @@ const AssetBrowser = () => {
         setLoading(false);
       }
     };
-
     fetchAssets();
   }, []);
 
   // -----------------------------------
-  // FETCH MOST USED
-  // silently fails for regular users
-  // -----------------------------------
-
-  // useEffect(() => {
-  //   const fetchMostUsed = async () => {
-  //     try {
-  //       const res = await api.get("/admin/analytics/most-used?limit=6");
-  //       setMostUsed(res.data.top_assets || []);
-  //     } catch {
-  //       setMostUsed([]);
-  //     }
-  //   };
-
-  //   fetchMostUsed();
-  // }, []);
-
-  // -----------------------------------
-  // SEMANTIC SEARCH
+  // HYBRID SEARCH
+  // semantic + keyword combined
   // -----------------------------------
 
   const handleSearch = async (e) => {
@@ -66,14 +47,13 @@ const AssetBrowser = () => {
     setSearchLoading(true);
 
     try {
-      const res = await api.post("/api/assets/search", {
+      const res = await api.post("/api/assets/search/hybrid", {
         query: searchQuery,
         limit: 20,
         approved_only: true,
       });
 
-      // map search results to same shape as asset list
-      // search returns asset_id instead of id
+      // map to same shape as asset list
       const mapped = res.data.results.map((r) => ({
         id: r.asset_id,
         original_filename: r.original_filename,
@@ -83,7 +63,10 @@ const AssetBrowser = () => {
         mime_type: r.mime_type,
         status: r.status,
         asset_metadata: r.asset_metadata,
-        score: r.score,
+        // search scores
+        score: r.hybrid_score,
+        semantic_score: r.semantic_score,
+        keyword_score: r.keyword_score,
         version: 1,
         is_latest: true,
       }));
@@ -104,10 +87,6 @@ const AssetBrowser = () => {
     setSearchQuery("");
     setSearchResults(null);
   };
-
-  // -----------------------------------
-  // DISPLAY — search results or all assets
-  // -----------------------------------
 
   const displayAssets = searchResults ? searchResults.assets : assets;
   const isSearchMode = searchResults !== null;
@@ -159,64 +138,22 @@ const AssetBrowser = () => {
           </form>
         </div>
 
-        {/* MOST USED — only shown when not searching */}
-        {/* {!isSearchMode && mostUsed.length > 0 && (
-          <section className="browser-section">
-            <h2 className="browser-section-title">🔥 Most Used Assets</h2>
-            <div className="browser-most-used">
-              {mostUsed.map((item) => {
-                const asset = assets.find((a) => a.id === item.asset_id);
-                if (!asset) return null;
-                return (
-                  <div
-                    key={item.asset_id}
-                    className="most-used-card"
-                    onClick={() => setSelectedAsset(asset)}
-                  >
-                    <div className="most-used-thumb">
-                      {asset.thumbnail_path || asset.preview_path ? (
-                        <img
-                          src={`http://localhost:8000/assets/${asset.id}/preview`}
-                          alt={item.asset_name}
-                        />
-                      ) : (
-                        <div className="most-used-placeholder">
-                          {asset.mime_type?.startsWith("video/")
-                            ? "🎬"
-                            : asset.mime_type === "application/pdf"
-                              ? "📄"
-                              : "🖼️"}
-                        </div>
-                      )}
-                    </div>
-                    <div className="most-used-info">
-                      <span className="most-used-name">
-                        {item.asset_name || asset.original_filename}
-                      </span>
-                      <span className="most-used-count">
-                        {item.total_usage} uses
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
+        {/* SEARCH INFO BAR */}
+        {isSearchMode && (
+          <div className="search-info-bar">
+            <span className="search-info-query">
+              Results for <strong>"{searchResults.query}"</strong>
+            </span>
+            <span className="search-info-meta">
+              {searchResults.total} result{searchResults.total !== 1 ? "s" : ""}
+              &nbsp;·&nbsp; semantic + keyword search
+            </span>
+          </div>
         )}
 
-        {/* RESULTS SECTION */}
+        {/* ASSETS */}
         <section className="browser-section">
-          {isSearchMode ? (
-            <div className="browser-search-header">
-              <h2 className="browser-section-title">
-                Search results for "{searchResults.query}"
-              </h2>
-              <span className="browser-search-count">
-                {searchResults.total} result
-                {searchResults.total !== 1 ? "s" : ""}
-              </span>
-            </div>
-          ) : (
+          {!isSearchMode && (
             <h2 className="browser-section-title">All Assets</h2>
           )}
 
@@ -243,6 +180,8 @@ const AssetBrowser = () => {
                   asset={asset}
                   onClick={() => setSelectedAsset(asset)}
                   score={asset.score}
+                  semanticScore={asset.semantic_score}
+                  keywordScore={asset.keyword_score}
                 />
               ))}
             </div>

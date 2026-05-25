@@ -154,3 +154,63 @@
 .asset-card-btn:hover {
   background: var(--accent-hover);
 }
+
+/* -----------------------------------
+   SCORE BADGE — search results only
+----------------------------------- */
+
+.asset-score-badge {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  background: rgba(99, 102, 241, 0.9);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  backdrop-filter: blur(4px);
+}
+
+/* -----------------------------------
+   SCORE BADGE
+----------------------------------- */
+
+.asset-score-badge {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  background: rgba(99, 102, 241, 0.9);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  backdrop-filter: blur(4px);
+}
+
+/* -----------------------------------
+   SCORE BREAKDOWN
+----------------------------------- */
+
+.asset-scores {
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.asset-score-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.asset-score-row span:last-child {
+  color: var(--accent);
+  font-weight: 600;
+}

@@ -114,7 +114,9 @@
   border-radius: var(--radius-md);
   overflow: hidden;
   cursor: pointer;
-  transition: border-color var(--transition), transform var(--transition);
+  transition:
+    border-color var(--transition),
+    transform var(--transition);
 }
 
 .most-used-card:hover {
@@ -207,6 +209,51 @@
 .browser-search-count {
   font-size: 0.82rem;
   color: var(--text-muted);
+}
+
+.browser-clear-btn {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.9rem;
+  font-size: 0.88rem;
+  transition: all var(--transition);
+}
+
+.browser-clear-btn:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+/* -----------------------------------
+   SEARCH INFO BAR
+----------------------------------- */
+
+.search-info-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: var(--accent-soft);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: var(--radius-md);
+  font-size: 0.85rem;
+}
+
+.search-info-query {
+  color: var(--text-primary);
+}
+
+.search-info-query strong {
+  color: var(--accent);
+}
+
+.search-info-meta {
+  color: var(--text-muted);
+  font-size: 0.8rem;
 }
 
 .browser-clear-btn {
