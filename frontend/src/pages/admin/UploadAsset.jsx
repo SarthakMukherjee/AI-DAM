@@ -6,6 +6,7 @@ import "../../styles/upload.css";
 const STEPS = ["Mandatory", "Business", "Content", "Upload"];
 
 const ASSET_TYPES = ["image", "video", "pdf", "document", "other"];
+
 const DOMAIN_TYPES = [
   "AI",
   "Marketing",
@@ -16,6 +17,7 @@ const DOMAIN_TYPES = [
   "Design",
   "Other",
 ];
+
 const USE_CASES = [
   "website",
   "social_media",
@@ -25,6 +27,7 @@ const USE_CASES = [
   "advertisement",
   "other",
 ];
+
 const AUDIENCE_TYPES = [
   "enterprise",
   "consumer",
@@ -32,7 +35,9 @@ const AUDIENCE_TYPES = [
   "partner",
   "public",
 ];
+
 const FUNNEL_STAGES = ["awareness", "consideration", "decision", "retention"];
+
 const TONE_TYPES = [
   "professional",
   "casual",
@@ -62,12 +67,17 @@ const UploadAsset = () => {
   const [step, setStep] = useState(0);
   const [form, setForm] = useState(defaultForm);
   const [file, setFile] = useState(null);
+
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
 
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    setForm({
+      ...form,
+      [e.target.name]: e.target.value,
+    });
+
     setError("");
   };
 
@@ -84,6 +94,7 @@ const UploadAsset = () => {
         return;
       }
     }
+
     setError("");
     setStep((s) => s + 1);
   };
@@ -98,6 +109,7 @@ const UploadAsset = () => {
       setError("Please select a file.");
       return;
     }
+
     setLoading(true);
     setError("");
 
@@ -110,41 +122,54 @@ const UploadAsset = () => {
         usage_rights: form.usage_rights,
         owner: form.owner,
       },
+
       business: {
         domain: form.domain,
         use_case: form.use_case,
         audience: form.audience,
         funnel_stage: form.funnel_stage,
       },
+
       content: {
         keywords: form.keywords
           .split(",")
           .map((k) => k.trim())
           .filter(Boolean),
+
         visual_elements: form.visual_elements
           .split(",")
           .map((v) => v.trim())
           .filter(Boolean),
+
         tone: form.tone,
       },
     };
 
     const formData = new FormData();
+
     formData.append("file", file);
     formData.append("metadata", JSON.stringify(metadata));
 
     try {
       await api.post("/assets/upload", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
       });
+
       setSuccess(true);
       setForm(defaultForm);
       setFile(null);
       setStep(0);
     } catch (err) {
-      setError(
-        err?.response?.data?.detail || "Upload failed. Please try again.",
-      );
+      const detail = err?.response?.data?.detail;
+
+      if (Array.isArray(detail)) {
+        // FastAPI / Pydantic validation errors
+        setError(detail.map((e) => e.msg).join(", "));
+      } else {
+        setError(detail || "Upload failed. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -156,6 +181,7 @@ const UploadAsset = () => {
         <div className="admin-header">
           <div>
             <h1 className="admin-title">Upload Asset</h1>
+
             <p className="admin-subtitle">
               Fill in asset details and upload your file
             </p>
@@ -180,9 +206,16 @@ const UploadAsset = () => {
             {STEPS.map((label, i) => (
               <div
                 key={label}
-                className={`wizard-step ${i === step ? "wizard-step--active" : i < step ? "wizard-step--done" : ""}`}
+                className={`wizard-step ${
+                  i === step
+                    ? "wizard-step--active"
+                    : i < step
+                      ? "wizard-step--done"
+                      : ""
+                }`}
               >
                 <div className="wizard-step-num">{i < step ? "✓" : i + 1}</div>
+
                 <span className="wizard-step-label">{label}</span>
               </div>
             ))}
@@ -193,8 +226,10 @@ const UploadAsset = () => {
             {step === 0 && (
               <div className="wizard-fields">
                 <h2 className="wizard-section-title">Mandatory Information</h2>
+
                 <div className="form-group">
                   <label>Asset Name *</label>
+
                   <input
                     name="asset_name"
                     value={form.asset_name}
@@ -202,8 +237,10 @@ const UploadAsset = () => {
                     placeholder="e.g. Q1 Marketing Banner"
                   />
                 </div>
+
                 <div className="form-group">
                   <label>Asset Type *</label>
+
                   <select
                     name="asset_type"
                     value={form.asset_type}
@@ -216,8 +253,10 @@ const UploadAsset = () => {
                     ))}
                   </select>
                 </div>
+
                 <div className="form-group">
                   <label>Description *</label>
+
                   <textarea
                     name="description"
                     value={form.description}
@@ -226,9 +265,11 @@ const UploadAsset = () => {
                     rows={3}
                   />
                 </div>
+
                 <div className="upload-row">
                   <div className="form-group">
                     <label>Created By *</label>
+
                     <input
                       name="created_by"
                       value={form.created_by}
@@ -236,8 +277,10 @@ const UploadAsset = () => {
                       placeholder="Your name"
                     />
                   </div>
+
                   <div className="form-group">
                     <label>Owner *</label>
+
                     <input
                       name="owner"
                       value={form.owner}
@@ -246,8 +289,10 @@ const UploadAsset = () => {
                     />
                   </div>
                 </div>
+
                 <div className="form-group">
                   <label>Usage Rights *</label>
+
                   <input
                     name="usage_rights"
                     value={form.usage_rights}
@@ -262,9 +307,11 @@ const UploadAsset = () => {
             {step === 1 && (
               <div className="wizard-fields">
                 <h2 className="wizard-section-title">Business Metadata</h2>
+
                 <div className="upload-row">
                   <div className="form-group">
                     <label>Domain</label>
+
                     <select
                       name="domain"
                       value={form.domain}
@@ -277,8 +324,10 @@ const UploadAsset = () => {
                       ))}
                     </select>
                   </div>
+
                   <div className="form-group">
                     <label>Use Case</label>
+
                     <select
                       name="use_case"
                       value={form.use_case}
@@ -292,9 +341,11 @@ const UploadAsset = () => {
                     </select>
                   </div>
                 </div>
+
                 <div className="upload-row">
                   <div className="form-group">
                     <label>Audience</label>
+
                     <select
                       name="audience"
                       value={form.audience}
@@ -307,8 +358,10 @@ const UploadAsset = () => {
                       ))}
                     </select>
                   </div>
+
                   <div className="form-group">
                     <label>Funnel Stage</label>
+
                     <select
                       name="funnel_stage"
                       value={form.funnel_stage}
@@ -329,8 +382,10 @@ const UploadAsset = () => {
             {step === 2 && (
               <div className="wizard-fields">
                 <h2 className="wizard-section-title">Content Metadata</h2>
+
                 <div className="form-group">
                   <label>Keywords</label>
+
                   <input
                     name="keywords"
                     value={form.keywords}
@@ -338,8 +393,10 @@ const UploadAsset = () => {
                     placeholder="AI, dashboard, analytics (comma separated)"
                   />
                 </div>
+
                 <div className="form-group">
                   <label>Visual Elements</label>
+
                   <input
                     name="visual_elements"
                     value={form.visual_elements}
@@ -347,8 +404,10 @@ const UploadAsset = () => {
                     placeholder="charts, UI, icons (comma separated)"
                   />
                 </div>
+
                 <div className="form-group">
                   <label>Tone</label>
+
                   <select name="tone" value={form.tone} onChange={handleChange}>
                     {TONE_TYPES.map((t) => (
                       <option key={t} value={t}>
@@ -364,17 +423,23 @@ const UploadAsset = () => {
             {step === 3 && (
               <div className="wizard-fields">
                 <h2 className="wizard-section-title">Upload File</h2>
+
                 <div
-                  className={`upload-dropzone ${file ? "upload-dropzone--filled" : ""}`}
+                  className={`upload-dropzone ${
+                    file ? "upload-dropzone--filled" : ""
+                  }`}
                   onClick={() => document.getElementById("file-input").click()}
                 >
                   {file ? (
                     <>
                       <span className="upload-dropzone-icon">✅</span>
+
                       <p className="upload-dropzone-name">{file.name}</p>
+
                       <p className="upload-dropzone-size">
                         {(file.size / 1024 / 1024).toFixed(2)} MB
                       </p>
+
                       <button
                         className="upload-remove-file"
                         onClick={(e) => {
@@ -388,13 +453,16 @@ const UploadAsset = () => {
                   ) : (
                     <>
                       <span className="upload-dropzone-icon">📁</span>
+
                       <p>Click to select a file</p>
+
                       <p className="upload-dropzone-hint">
                         Supported: JPEG, PNG, MP4, PDF
                       </p>
                     </>
                   )}
                 </div>
+
                 <input
                   id="file-input"
                   type="file"
@@ -405,22 +473,27 @@ const UploadAsset = () => {
 
                 <div className="upload-summary">
                   <h3>Summary</h3>
+
                   <div className="summary-row">
                     <span>Asset Name</span>
                     <span>{form.asset_name}</span>
                   </div>
+
                   <div className="summary-row">
                     <span>Type</span>
                     <span>{form.asset_type}</span>
                   </div>
+
                   <div className="summary-row">
                     <span>Domain</span>
                     <span>{form.domain}</span>
                   </div>
+
                   <div className="summary-row">
                     <span>Owner</span>
                     <span>{form.owner}</span>
                   </div>
+
                   <div className="summary-row">
                     <span>Tone</span>
                     <span>{form.tone}</span>
@@ -437,6 +510,7 @@ const UploadAsset = () => {
                   ← Back
                 </button>
               )}
+
               {step < STEPS.length - 1 ? (
                 <button className="wizard-btn-next" onClick={handleNext}>
                   Next →

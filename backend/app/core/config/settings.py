@@ -34,6 +34,14 @@ class Settings(BaseSettings):
     JWT_SECRET_KEY: str
     JWT_ALGORITHM: str = "HS256"
 
+    # -----------------------------------
+    # CLOUDINARY
+    # -----------------------------------
+
+    CLOUDINARY_CLOUD_NAME: str
+    CLOUDINARY_API_KEY: str
+    CLOUDINARY_API_SECRET: str
+
     class Config:
         env_file = ".env"
 

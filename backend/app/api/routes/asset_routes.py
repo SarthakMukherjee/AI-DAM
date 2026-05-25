@@ -12,7 +12,7 @@ from fastapi import (
 import os
 import json
 
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy.orm import Session
 from pydantic import ValidationError
 from slowapi import Limiter
@@ -42,8 +42,7 @@ asset_service = AssetService()
 
 def sanitize_json_string(raw: str) -> str:
     return (
-        raw
-        .strip()
+        raw.strip()
         .replace("\r\n", " ")
         .replace("\n", " ")
         .replace("\r", " ")
@@ -53,26 +52,26 @@ def sanitize_json_string(raw: str) -> str:
 
 def log_usage(asset_id: str, action: str, db: Session):
     try:
-        usage = AssetUsage(
-            asset_id=asset_id,
-            action=action,
-            usage_count=1
-        )
+        usage = AssetUsage(asset_id=asset_id, action=action, usage_count=1)
         db.add(usage)
         db.commit()
     except Exception as e:
         print(f"Usage logging failed: {e}")
 
 
+def is_cloud_url(path: str) -> bool:
+    """Check if path is a cloud URL rather than local path."""
+    return path and (
+        path.startswith("https://") or
+        path.startswith("http://")
+    )
+
+
 # -----------------------------------
 # UPLOAD — admin only
-# 10 requests per minute
 # -----------------------------------
 
-@router.post(
-    "/upload",
-    status_code=status.HTTP_201_CREATED
-)
+@router.post("/upload", status_code=status.HTTP_201_CREATED)
 @limiter.limit("10/minute")
 async def upload_asset(
     request: Request,
@@ -82,27 +81,17 @@ async def upload_asset(
     db: Session = Depends(get_db),
     _: User = Depends(require_admin)
 ):
-
     try:
         sanitized = sanitize_json_string(metadata)
         parsed_metadata = json.loads(sanitized)
         validated_metadata = AssetMetadataSchema(**parsed_metadata)
 
     except json.JSONDecodeError as json_err:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid JSON in metadata: {str(json_err)}"
-        )
+        raise HTTPException(status_code=400, detail=f"Invalid JSON in metadata: {str(json_err)}")
     except ValidationError as valid_errors:
-        raise HTTPException(
-            status_code=422,
-            detail=valid_errors.errors()
-        )
+        raise HTTPException(status_code=422, detail=valid_errors.errors())
     except Exception as excep_errors:
-        raise HTTPException(
-            status_code=500,
-            detail=str(excep_errors)
-        )
+        raise HTTPException(status_code=500, detail=str(excep_errors))
 
     asset = await asset_service.upload_asset(
         file=file,
@@ -117,8 +106,6 @@ async def upload_asset(
 
 # -----------------------------------
 # LIST ASSETS
-# user         → approved + is_latest only
-# others       → all
 # -----------------------------------
 
 @router.get("/")
@@ -126,7 +113,6 @@ def list_assets(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-
     if current_user.role == "user":
         return (
             db.query(Asset)
@@ -141,7 +127,8 @@ def list_assets(
 
 
 # -----------------------------------
-# DOWNLOAD — auth required
+# DOWNLOAD
+# redirects to cloud URL or serves local
 # -----------------------------------
 
 @router.get("/{asset_id}/download")
@@ -150,12 +137,7 @@ def download_asset(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-
-    asset = (
-        db.query(Asset)
-        .filter(Asset.id == asset_id)
-        .first()
-    )
+    asset = db.query(Asset).filter(Asset.id == asset_id).first()
 
     if not asset:
         raise HTTPException(status_code=404, detail="Asset not found")
@@ -168,6 +150,11 @@ def download_asset(
 
     log_usage(asset_id, "download", db)
 
+    # cloud URL — redirect browser directly
+    if is_cloud_url(asset.storage_path):
+        return RedirectResponse(url=asset.storage_path)
+
+    # local file — serve directly
     return FileResponse(
         path=asset.storage_path,
         filename=asset.original_filename
@@ -175,7 +162,8 @@ def download_asset(
 
 
 # -----------------------------------
-# PREVIEW — auth required
+# PREVIEW
+# redirects to cloud URL or serves local
 # -----------------------------------
 
 @router.get("/{asset_id}/preview")
@@ -184,20 +172,12 @@ def preview_asset(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-
-    asset = (
-        db.query(Asset)
-        .filter(Asset.id == asset_id)
-        .first()
-    )
+    asset = db.query(Asset).filter(Asset.id == asset_id).first()
 
     if not asset:
         raise HTTPException(status_code=404, detail="Asset not found")
 
-    if (
-        current_user.role == "user"
-        and asset.status != "approved"
-    ):
+    if current_user.role == "user" and asset.status != "approved":
         raise HTTPException(status_code=403, detail="Asset not available")
 
     preview_path = asset.preview_path or asset.thumbnail_path
@@ -207,11 +187,16 @@ def preview_asset(
 
     log_usage(asset_id, "preview", db)
 
+    # cloud URL — redirect
+    if is_cloud_url(preview_path):
+        return RedirectResponse(url=preview_path)
+
+    # local file
     return FileResponse(preview_path)
 
 
 # -----------------------------------
-# PDF VIEWER — auth required
+# PDF VIEWER
 # -----------------------------------
 
 @router.get("/{asset_id}/pdf-viewer")
@@ -220,29 +205,25 @@ def pdf_viewer(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-
-    asset = (
-        db.query(Asset)
-        .filter(Asset.id == asset_id)
-        .first()
-    )
+    asset = db.query(Asset).filter(Asset.id == asset_id).first()
 
     if not asset:
         raise HTTPException(status_code=404, detail="Asset not found")
 
-    if (
-        current_user.role == "user"
-        and asset.status != "approved"
-    ):
+    if current_user.role == "user" and asset.status != "approved":
         raise HTTPException(status_code=403, detail="Asset not available")
 
     if asset.mime_type != "application/pdf":
         raise HTTPException(status_code=400, detail="Asset is not a PDF")
 
+    log_usage(asset_id, "preview", db)
+
+    # cloud URL — redirect so browser opens PDF natively
+    if is_cloud_url(asset.storage_path):
+        return RedirectResponse(url=asset.storage_path)
+
     if not asset.storage_path or not os.path.exists(asset.storage_path):
         raise HTTPException(status_code=404, detail="PDF file not found on disk")
-
-    log_usage(asset_id, "preview", db)
 
     return FileResponse(
         path=asset.storage_path,
@@ -254,7 +235,7 @@ def pdf_viewer(
 
 
 # -----------------------------------
-# PDF PAGE IMAGE — auth required
+# PDF PAGE IMAGE
 # -----------------------------------
 
 @router.get("/{asset_id}/pdf-viewer/page/{page_num}")
@@ -264,24 +245,20 @@ def pdf_page_image(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-
-    asset = (
-        db.query(Asset)
-        .filter(Asset.id == asset_id)
-        .first()
-    )
+    asset = db.query(Asset).filter(Asset.id == asset_id).first()
 
     if not asset:
         raise HTTPException(status_code=404, detail="Asset not found")
 
-    if (
-        current_user.role == "user"
-        and asset.status != "approved"
-    ):
+    if current_user.role == "user" and asset.status != "approved":
         raise HTTPException(status_code=403, detail="Asset not available")
 
     if asset.mime_type != "application/pdf":
         raise HTTPException(status_code=400, detail="Asset is not a PDF")
+
+    # for cloud stored PDFs, preview_path already points to page 1 cloud URL
+    if is_cloud_url(asset.preview_path) and page_num == 1:
+        return RedirectResponse(url=asset.preview_path)
 
     from app.core.config.settings import settings
 
@@ -296,29 +273,3 @@ def pdf_page_image(
         raise HTTPException(status_code=404, detail=f"Page {page_num} not found")
 
     return FileResponse(path=page_path, media_type="image/png")
-
-from app.ai.embeddings.semantic_search_service import SemanticSearchService
-
-@router.post("/reindex-all")
-def reindex_all(
-    db: Session = Depends(get_db),
-    _: User = Depends(require_admin)
-):
-    assets = db.query(Asset).filter(
-        Asset.asset_metadata != None
-    ).all()
-    
-    success, failed = 0, 0
-    for asset in assets:
-        try:
-            SemanticSearchService.index_asset(
-                asset_id=str(asset.id),
-                asset_metadata=asset.asset_metadata,
-                status=asset.status,
-            )
-            success += 1
-        except Exception as e:
-            print(f"Failed to reindex {asset.id}: {e}")
-            failed += 1
-
-    return {"reindexed": success, "failed": failed}
