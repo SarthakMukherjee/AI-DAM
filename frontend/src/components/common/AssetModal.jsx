@@ -20,7 +20,9 @@ const AssetModal = ({ asset, onClose, onDelete, showDelete }) => {
   const caption = asset.asset_metadata?.ai_enrichment?.image_caption || "";
 
   const mandatory = asset.asset_metadata?.mandatory || {};
+
   const business = asset.asset_metadata?.business || {};
+
   const content = asset.asset_metadata?.content || {};
 
   const icon = TYPE_ICON[asset.mime_type] || "📁";
@@ -28,41 +30,74 @@ const AssetModal = ({ asset, onClose, onDelete, showDelete }) => {
   // close on ESC
   useEffect(() => {
     const handler = (e) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        onClose();
+      }
     };
+
     document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
+
+    return () => {
+      document.removeEventListener("keydown", handler);
+    };
   }, [onClose]);
 
+  // =========================================
+  // DOWNLOAD HANDLER
+  // =========================================
+
   const handleDownload = async () => {
-    const isCloudUrl = asset.storage_path?.startsWith("http");
-
-    if (isCloudUrl) {
-      // open Cloudinary URL directly — no axios needed
-      const link = document.createElement("a");
-      link.href = asset.storage_path;
-      link.setAttribute("download", asset.original_filename);
-      link.target = "_blank";
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      return;
-    }
-
-    // local file — use axios through backend
     try {
-      const res = await api.get(`/assets/${asset.id}/download`, {
-        responseType: "blob",
-      });
-      const url = window.URL.createObjectURL(new Blob([res.data]));
+      // =====================================
+      // LOCAL FILES (PDFS ETC)
+      // =====================================
+
+      if (!asset.storage_path?.startsWith("http")) {
+        const res = await api.get(`/assets/${asset.id}/download`, {
+          responseType: "blob",
+        });
+
+        const blob = new Blob([res.data]);
+
+        const url = window.URL.createObjectURL(blob);
+
+        const link = document.createElement("a");
+
+        link.href = url;
+
+        link.download = asset.original_filename;
+
+        document.body.appendChild(link);
+
+        link.click();
+
+        link.remove();
+
+        window.URL.revokeObjectURL(url);
+
+        return;
+      }
+
+      // =====================================
+      // CLOUDINARY FILES
+      // =====================================
+
       const link = document.createElement("a");
-      link.href = url;
+
+      link.href = asset.storage_path;
+
+      link.target = "_blank";
+
       link.setAttribute("download", asset.original_filename);
+
       document.body.appendChild(link);
+
       link.click();
+
       link.remove();
-      window.URL.revokeObjectURL(url);
-    } catch {
+    } catch (err) {
+      console.error(err);
+
       alert("Download failed. Please try again.");
     }
   };
@@ -71,14 +106,18 @@ const AssetModal = ({ asset, onClose, onDelete, showDelete }) => {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-container" onClick={(e) => e.stopPropagation()}>
         {/* HEADER */}
+
         <div className="modal-header">
           <div className="modal-title-group">
             <span className="modal-icon">{icon}</span>
+
             <div>
               <h2 className="modal-title">{assetName}</h2>
+
               <span className="modal-filename">{asset.original_filename}</span>
             </div>
           </div>
+
           <button className="modal-close" onClick={onClose}>
             ✕
           </button>
@@ -86,6 +125,7 @@ const AssetModal = ({ asset, onClose, onDelete, showDelete }) => {
 
         <div className="modal-body">
           {/* LEFT — PREVIEW */}
+
           <div className="modal-preview">
             {asset.mime_type?.startsWith("image/") ? (
               <img
@@ -108,24 +148,28 @@ const AssetModal = ({ asset, onClose, onDelete, showDelete }) => {
             ) : (
               <div className="modal-preview-placeholder">
                 <span>{icon}</span>
+
                 <p>No preview available</p>
               </div>
             )}
           </div>
 
           {/* RIGHT — DETAILS */}
+
           <div className="modal-details">
             <p className="modal-description">{description}</p>
 
             {caption && (
               <div className="modal-detail-group">
                 <span className="modal-detail-label">AI Caption</span>
+
                 <span className="modal-detail-value">{caption}</span>
               </div>
             )}
 
             <div className="modal-detail-group">
               <span className="modal-detail-label">Status</span>
+
               <span
                 className={`badge ${
                   asset.status === "approved"
@@ -141,6 +185,7 @@ const AssetModal = ({ asset, onClose, onDelete, showDelete }) => {
 
             <div className="modal-detail-group">
               <span className="modal-detail-label">Type</span>
+
               <span className="modal-detail-value">
                 {mandatory.asset_type || asset.mime_type}
               </span>
@@ -148,6 +193,7 @@ const AssetModal = ({ asset, onClose, onDelete, showDelete }) => {
 
             <div className="modal-detail-group">
               <span className="modal-detail-label">Owner</span>
+
               <span className="modal-detail-value">
                 {mandatory.owner || "—"}
               </span>
@@ -155,6 +201,7 @@ const AssetModal = ({ asset, onClose, onDelete, showDelete }) => {
 
             <div className="modal-detail-group">
               <span className="modal-detail-label">Created by</span>
+
               <span className="modal-detail-value">
                 {mandatory.created_by || "—"}
               </span>
@@ -162,6 +209,7 @@ const AssetModal = ({ asset, onClose, onDelete, showDelete }) => {
 
             <div className="modal-detail-group">
               <span className="modal-detail-label">Domain</span>
+
               <span className="modal-detail-value">
                 {business.domain || "—"}
               </span>
@@ -169,6 +217,7 @@ const AssetModal = ({ asset, onClose, onDelete, showDelete }) => {
 
             <div className="modal-detail-group">
               <span className="modal-detail-label">Audience</span>
+
               <span className="modal-detail-value">
                 {business.audience || "—"}
               </span>
@@ -176,11 +225,13 @@ const AssetModal = ({ asset, onClose, onDelete, showDelete }) => {
 
             <div className="modal-detail-group">
               <span className="modal-detail-label">Tone</span>
+
               <span className="modal-detail-value">{content.tone || "—"}</span>
             </div>
 
             <div className="modal-detail-group">
               <span className="modal-detail-label">Usage Rights</span>
+
               <span className="modal-detail-value">
                 {mandatory.usage_rights || "—"}
               </span>
@@ -188,12 +239,14 @@ const AssetModal = ({ asset, onClose, onDelete, showDelete }) => {
 
             <div className="modal-detail-group">
               <span className="modal-detail-label">Version</span>
+
               <span className="modal-detail-value">v{asset.version}</span>
             </div>
 
             {tags.length > 0 && (
               <div className="modal-detail-group">
                 <span className="modal-detail-label">AI Tags</span>
+
                 <div className="modal-tags">
                   {tags.map((tag) => (
                     <span key={tag} className="asset-tag">
@@ -205,6 +258,7 @@ const AssetModal = ({ asset, onClose, onDelete, showDelete }) => {
             )}
 
             {/* ACTIONS */}
+
             <div className="modal-actions">
               <button
                 className="modal-btn modal-btn-primary"
@@ -212,6 +266,7 @@ const AssetModal = ({ asset, onClose, onDelete, showDelete }) => {
               >
                 ⬇ Download
               </button>
+
               {asset.mime_type === "application/pdf" && (
                 <a
                   href={`http://localhost:8000/assets/${asset.id}/pdf-viewer`}
@@ -222,6 +277,7 @@ const AssetModal = ({ asset, onClose, onDelete, showDelete }) => {
                   Open PDF
                 </a>
               )}
+
               {showDelete && onDelete && (
                 <button
                   className="modal-btn modal-btn-danger"
