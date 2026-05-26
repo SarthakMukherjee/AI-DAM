@@ -10,6 +10,9 @@ from app.services.storage.thumbnail_service import ThumbnailService
 from app.services.storage.pdf_preview_service import PDFPreviewService
 from app.services.storage.video_preview_service import VideoPreviewService
 from app.services.storage.cloud_service import CloudService
+from app.ai.retrieval.semantic_search_service import (
+    SemanticSearchService
+)
 
 from app.ai.pipelines.enrichment_pipeline import EnrichmentPipeline
 
@@ -278,5 +281,57 @@ class AssetService:
         except Exception as e:
 
             print(f"AI Enrichment failed: {e}")
+
+
+        # =====================================================
+        # STEP 11 — SEMANTIC INDEXING
+        # =====================================================
+        #
+        # IMPORTANT:
+        # Semantic indexing MUST happen AFTER:
+        #
+        # 1. Asset exists in PostgreSQL
+        # 2. AI enrichment completes
+        # 3. Metadata is fully updated
+        # 4. Final status is available
+        #
+        # Otherwise ChromaDB becomes stale/incomplete.
+        #
+        # This fixes:
+        # - semantic search returning empty results
+        # - stale metadata in vector DB
+        # - missing embeddings
+        # - filters not matching
+        #
+        # =====================================================
+
+        try:
+
+            SemanticSearchService.index_asset(
+
+                asset_id=str(asset.id),
+
+                asset_metadata=(
+                    asset.asset_metadata
+                    or {}
+                ),
+
+                status=asset.status
+            )
+
+            print(
+                f"[SEMANTIC INDEXED] Asset ID: {asset.id}"
+            )
+
+        except Exception as e:
+
+            print(
+                f"[SEMANTIC INDEX FAILED] "
+                f"Asset ID: {asset.id} | Error: {e}"
+            )
+
+        # =====================================================
+        # STEP 12 — RETURN ASSET
+        # =====================================================
 
         return asset

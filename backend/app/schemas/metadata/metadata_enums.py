@@ -18,6 +18,10 @@ class DomainType(str, Enum):
     STAFFING="staffing"
     MARKETING="marketing"
     SALES="sales"
+    FINANCE="finance"
+    HR="hr"
+    OPERATIONS="operations"
+    HEALTHCARE="healthcare"
 
 class UseCaseTypes(str, Enum):
     WEBSITE="website"

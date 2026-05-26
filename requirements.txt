@@ -49,3 +49,5 @@ opencv-python
 
 chromadb
 sentence-transformers
+
+cloudinary 
