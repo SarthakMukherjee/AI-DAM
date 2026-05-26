@@ -7,7 +7,14 @@ const TYPE_ICON = {
   "application/pdf": "📄",
 };
 
-const AssetCard = ({ asset, onClick, score, semanticScore, keywordScore }) => {
+const AssetCard = ({
+  asset,
+  onClick,
+  score,
+  semanticScore,
+  keywordScore,
+  searchMode,
+}) => {
   const icon = TYPE_ICON[asset.mime_type] || "📁";
 
   const assetName =
@@ -23,7 +30,6 @@ const AssetCard = ({ asset, onClick, score, semanticScore, keywordScore }) => {
 
   const status = asset.status;
 
-  // preview URL — use cloud URL directly if available
   const previewUrl = asset.thumbnail_path?.startsWith("http")
     ? asset.thumbnail_path
     : asset.preview_path?.startsWith("http")
@@ -45,10 +51,10 @@ const AssetCard = ({ asset, onClick, score, semanticScore, keywordScore }) => {
             )}
           </div>
 
-          {/* SCORE BADGE — hybrid score */}
           {score !== undefined && (
             <div className="asset-score-badge">
-              {Math.round(score * 100)}% match
+              {Math.round(score * 100)}%{" "}
+              {searchMode === "hybrid" ? "hybrid" : "match"}
             </div>
           )}
 
@@ -82,15 +88,15 @@ const AssetCard = ({ asset, onClick, score, semanticScore, keywordScore }) => {
               </span>
             </div>
 
-            {/* SCORE BREAKDOWN — shown in search mode */}
-            {score !== undefined && semanticScore !== undefined && (
+            {/* SCORE BREAKDOWN — hybrid only */}
+            {searchMode === "hybrid" && semanticScore !== null && (
               <div className="asset-scores">
                 <div className="asset-score-row">
-                  <span>Semantic</span>
+                  <span>🧠 Semantic</span>
                   <span>{Math.round(semanticScore * 100)}%</span>
                 </div>
                 <div className="asset-score-row">
-                  <span>Keyword</span>
+                  <span>🔑 Keyword</span>
                   <span>{Math.round(keywordScore * 100)}%</span>
                 </div>
               </div>

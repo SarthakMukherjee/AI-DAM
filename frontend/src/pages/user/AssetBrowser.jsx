@@ -11,11 +11,8 @@ const AssetBrowser = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState(null);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [searchMode, setSearchMode] = useState("hybrid"); // "hybrid" | "semantic"
   const [loading, setLoading] = useState(true);
-
-  // -----------------------------------
-  // FETCH APPROVED ASSETS
-  // -----------------------------------
 
   useEffect(() => {
     const fetchAssets = async () => {
@@ -32,8 +29,7 @@ const AssetBrowser = () => {
   }, []);
 
   // -----------------------------------
-  // HYBRID SEARCH
-  // semantic + keyword combined
+  // SEARCH
   // -----------------------------------
 
   const handleSearch = async (e) => {
@@ -46,14 +42,18 @@ const AssetBrowser = () => {
 
     setSearchLoading(true);
 
+    const endpoint =
+      searchMode === "hybrid"
+        ? "/api/assets/search/hybrid"
+        : "/api/assets/search";
+
     try {
-      const res = await api.post("/api/assets/search/hybrid", {
+      const res = await api.post(endpoint, {
         query: searchQuery,
         limit: 20,
         approved_only: true,
       });
 
-      // map to same shape as asset list
       const mapped = res.data.results.map((r) => ({
         id: r.asset_id,
         original_filename: r.original_filename,
@@ -63,10 +63,9 @@ const AssetBrowser = () => {
         mime_type: r.mime_type,
         status: r.status,
         asset_metadata: r.asset_metadata,
-        // search scores
-        score: r.hybrid_score,
-        semantic_score: r.semantic_score,
-        keyword_score: r.keyword_score,
+        score: searchMode === "hybrid" ? r.hybrid_score : r.score,
+        semantic_score: r.semantic_score || null,
+        keyword_score: r.keyword_score || null,
         version: 1,
         is_latest: true,
       }));
@@ -75,9 +74,15 @@ const AssetBrowser = () => {
         query: res.data.query,
         total: res.data.total,
         assets: mapped,
+        mode: searchMode,
       });
     } catch {
-      setSearchResults({ query: searchQuery, total: 0, assets: [] });
+      setSearchResults({
+        query: searchQuery,
+        total: 0,
+        assets: [],
+        mode: searchMode,
+      });
     } finally {
       setSearchLoading(false);
     }
@@ -103,39 +108,70 @@ const AssetBrowser = () => {
             </p>
           </div>
 
-          {/* SEARCH BAR */}
-          <form className="browser-search" onSubmit={handleSearch}>
-            <input
-              type="text"
-              placeholder="Search assets with AI..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="browser-search-input"
-            />
-            {isSearchMode && (
+          {/* SEARCH BAR + MODE TOGGLE */}
+          <div className="browser-search-wrap">
+            {/* MODE TOGGLE */}
+            <div className="search-mode-toggle">
               <button
                 type="button"
-                className="browser-clear-btn"
-                onClick={handleClearSearch}
+                className={`search-mode-btn ${searchMode === "hybrid" ? "search-mode-btn--active" : ""}`}
+                onClick={() => {
+                  setSearchMode("hybrid");
+                  setSearchResults(null);
+                }}
               >
-                Clear
+                ⚡ Hybrid
               </button>
-            )}
-            <button
-              type="submit"
-              className="browser-search-btn"
-              disabled={searchLoading}
-            >
-              {searchLoading ? (
-                <span
-                  className="btn-loader"
-                  style={{ width: 14, height: 14, borderWidth: 2 }}
-                />
-              ) : (
-                "Search"
+              <button
+                type="button"
+                className={`search-mode-btn ${searchMode === "semantic" ? "search-mode-btn--active" : ""}`}
+                onClick={() => {
+                  setSearchMode("semantic");
+                  setSearchResults(null);
+                }}
+              >
+                🧠 Semantic
+              </button>
+            </div>
+
+            {/* SEARCH FORM */}
+            <form className="browser-search" onSubmit={handleSearch}>
+              <input
+                type="text"
+                placeholder={
+                  searchMode === "hybrid"
+                    ? "Hybrid search — keyword + semantic..."
+                    : "Semantic search — natural language..."
+                }
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="browser-search-input"
+              />
+              {isSearchMode && (
+                <button
+                  type="button"
+                  className="browser-clear-btn"
+                  onClick={handleClearSearch}
+                >
+                  Clear
+                </button>
               )}
-            </button>
-          </form>
+              <button
+                type="submit"
+                className="browser-search-btn"
+                disabled={searchLoading}
+              >
+                {searchLoading ? (
+                  <span
+                    className="btn-loader"
+                    style={{ width: 14, height: 14, borderWidth: 2 }}
+                  />
+                ) : (
+                  "Search"
+                )}
+              </button>
+            </form>
+          </div>
         </div>
 
         {/* SEARCH INFO BAR */}
@@ -146,7 +182,10 @@ const AssetBrowser = () => {
             </span>
             <span className="search-info-meta">
               {searchResults.total} result{searchResults.total !== 1 ? "s" : ""}
-              &nbsp;·&nbsp; semantic + keyword search
+              &nbsp;·&nbsp;
+              {searchResults.mode === "hybrid"
+                ? "⚡ hybrid search (semantic + keyword)"
+                : "🧠 semantic search"}
             </span>
           </div>
         )}
@@ -168,7 +207,7 @@ const AssetBrowser = () => {
               </h3>
               <p>
                 {isSearchMode
-                  ? "Try a different search query."
+                  ? "Try a different search query or switch search mode."
                   : "Approved assets will appear here."}
               </p>
             </div>
@@ -182,6 +221,7 @@ const AssetBrowser = () => {
                   score={asset.score}
                   semanticScore={asset.semantic_score}
                   keywordScore={asset.keyword_score}
+                  searchMode={searchResults?.mode}
                 />
               ))}
             </div>

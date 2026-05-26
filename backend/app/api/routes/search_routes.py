@@ -46,7 +46,7 @@ async def semantic_search(
         raw_results = SemanticSearchService.search(
             db=db,
             query=body.query,
-            # limit=body.limit,
+            limit=getattr(body, "limit", 10),
             approved_only=body.approved_only,
         )
 

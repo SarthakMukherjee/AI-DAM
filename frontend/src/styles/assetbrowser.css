@@ -270,3 +270,48 @@
   border-color: var(--danger);
   color: var(--danger);
 }
+
+/* -----------------------------------
+   SEARCH WRAP — contains toggle + form
+----------------------------------- */
+
+.browser-search-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  flex: 1;
+  max-width: 520px;
+}
+
+/* -----------------------------------
+   SEARCH MODE TOGGLE
+----------------------------------- */
+
+.search-mode-toggle {
+  display: flex;
+  gap: 0.35rem;
+  align-self: flex-end;
+}
+
+.search-mode-btn {
+  padding: 0.3rem 0.9rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  background: var(--bg-tertiary);
+  transition: all var(--transition);
+  cursor: pointer;
+}
+
+.search-mode-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.search-mode-btn--active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
