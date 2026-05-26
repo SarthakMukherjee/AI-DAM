@@ -1,18 +1,28 @@
 ﻿import { useState, useEffect } from "react";
 import api from "../../api/axios";
+
 import UserLayout from "../../components/common/UserLayout";
 import AssetCard from "../../components/common/AssetCard";
 import AssetModal from "../../components/common/AssetModal";
+
 import "../../styles/assetbrowser.css";
 
 const AssetBrowser = () => {
   const [assets, setAssets] = useState([]);
   const [selectedAsset, setSelectedAsset] = useState(null);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState(null);
+
   const [searchLoading, setSearchLoading] = useState(false);
-  const [searchMode, setSearchMode] = useState("hybrid"); // "hybrid" | "semantic"
+
+  const [searchMode, setSearchMode] = useState("hybrid");
+
   const [loading, setLoading] = useState(true);
+
+  // ---------------------------------------------------
+  // FETCH ASSETS
+  // ---------------------------------------------------
 
   useEffect(() => {
     const fetchAssets = async () => {
@@ -25,12 +35,13 @@ const AssetBrowser = () => {
         setLoading(false);
       }
     };
+
     fetchAssets();
   }, []);
 
-  // -----------------------------------
+  // ---------------------------------------------------
   // SEARCH
-  // -----------------------------------
+  // ---------------------------------------------------
 
   const handleSearch = async (e) => {
     e.preventDefault();
@@ -54,29 +65,57 @@ const AssetBrowser = () => {
         approved_only: true,
       });
 
+      console.log("SEARCH RESPONSE", res.data);
+
       const mapped = res.data.results.map((r) => ({
         id: r.asset_id,
+
         original_filename: r.original_filename,
+
         storage_path: r.storage_path,
+
         thumbnail_path: r.thumbnail_path,
+
         preview_path: r.preview_path,
+
         mime_type: r.mime_type,
+
         status: r.status,
+
         asset_metadata: r.asset_metadata,
+
+        // ---------------------------------
+        // MAIN SCORE
+        // ---------------------------------
+
         score: searchMode === "hybrid" ? r.hybrid_score : r.score,
-        semantic_score: r.semantic_score || null,
-        keyword_score: r.keyword_score || null,
+
+        // ---------------------------------
+        // HYBRID BREAKDOWN
+        // ---------------------------------
+
+        semantic_score:
+          typeof r.semantic_score === "number" ? r.semantic_score : null,
+
+        keyword_score:
+          typeof r.keyword_score === "number" ? r.keyword_score : null,
+
         version: 1,
         is_latest: true,
       }));
 
       setSearchResults({
         query: res.data.query,
+
         total: res.data.total,
+
         assets: mapped,
+
         mode: searchMode,
       });
-    } catch {
+    } catch (err) {
+      console.error(err);
+
       setSearchResults({
         query: searchQuery,
         total: 0,
@@ -88,33 +127,45 @@ const AssetBrowser = () => {
     }
   };
 
+  // ---------------------------------------------------
+  // CLEAR SEARCH
+  // ---------------------------------------------------
+
   const handleClearSearch = () => {
     setSearchQuery("");
     setSearchResults(null);
   };
 
+  // ---------------------------------------------------
+  // DISPLAY
+  // ---------------------------------------------------
+
   const displayAssets = searchResults ? searchResults.assets : assets;
+
   const isSearchMode = searchResults !== null;
 
   return (
     <UserLayout>
       <div className="browser-page">
-        {/* PAGE HEADER */}
+        {/* HEADER */}
         <div className="browser-header">
           <div>
             <h1 className="browser-title">Asset Library</h1>
+
             <p className="browser-subtitle">
               Browse and download approved assets
             </p>
           </div>
 
-          {/* SEARCH BAR + MODE TOGGLE */}
+          {/* SEARCH */}
           <div className="browser-search-wrap">
-            {/* MODE TOGGLE */}
+            {/* MODE */}
             <div className="search-mode-toggle">
               <button
                 type="button"
-                className={`search-mode-btn ${searchMode === "hybrid" ? "search-mode-btn--active" : ""}`}
+                className={`search-mode-btn ${
+                  searchMode === "hybrid" ? "search-mode-btn--active" : ""
+                }`}
                 onClick={() => {
                   setSearchMode("hybrid");
                   setSearchResults(null);
@@ -122,31 +173,35 @@ const AssetBrowser = () => {
               >
                 ⚡ Hybrid
               </button>
+
               <button
                 type="button"
-                className={`search-mode-btn ${searchMode === "semantic" ? "search-mode-btn--active" : ""}`}
+                className={`search-mode-btn ${
+                  searchMode === "semantic" ? "search-mode-btn--active" : ""
+                }`}
                 onClick={() => {
                   setSearchMode("semantic");
                   setSearchResults(null);
                 }}
               >
-                🧠 Semantic
+                🧠 AI Search
               </button>
             </div>
 
-            {/* SEARCH FORM */}
+            {/* FORM */}
             <form className="browser-search" onSubmit={handleSearch}>
               <input
                 type="text"
                 placeholder={
                   searchMode === "hybrid"
-                    ? "Hybrid search — keyword + semantic..."
-                    : "Semantic search — natural language..."
+                    ? "Hybrid search — keyword + AI..."
+                    : "AI semantic search..."
                 }
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="browser-search-input"
               />
+
               {isSearchMode && (
                 <button
                   type="button"
@@ -156,36 +211,32 @@ const AssetBrowser = () => {
                   Clear
                 </button>
               )}
+
               <button
                 type="submit"
                 className="browser-search-btn"
                 disabled={searchLoading}
               >
-                {searchLoading ? (
-                  <span
-                    className="btn-loader"
-                    style={{ width: 14, height: 14, borderWidth: 2 }}
-                  />
-                ) : (
-                  "Search"
-                )}
+                {searchLoading ? "Searching..." : "Search"}
               </button>
             </form>
           </div>
         </div>
 
-        {/* SEARCH INFO BAR */}
+        {/* SEARCH INFO */}
         {isSearchMode && (
           <div className="search-info-bar">
             <span className="search-info-query">
               Results for <strong>"{searchResults.query}"</strong>
             </span>
+
             <span className="search-info-meta">
-              {searchResults.total} result{searchResults.total !== 1 ? "s" : ""}
+              {searchResults.total} result
+              {searchResults.total !== 1 ? "s" : ""}
               &nbsp;·&nbsp;
               {searchResults.mode === "hybrid"
-                ? "⚡ hybrid search (semantic + keyword)"
-                : "🧠 semantic search"}
+                ? "⚡ hybrid search"
+                : "🧠 AI semantic search"}
             </span>
           </div>
         )}
@@ -203,11 +254,16 @@ const AssetBrowser = () => {
           ) : displayAssets.length === 0 ? (
             <div className="empty-state">
               <h3>
-                {isSearchMode ? "No results found" : "No assets available"}
+                {isSearchMode
+                  ? `No ${searchResults.mode} results found`
+                  : "No assets available"}
               </h3>
+
               <p>
                 {isSearchMode
-                  ? "Try a different search query or switch search mode."
+                  ? searchResults.mode === "semantic"
+                    ? "Try a descriptive natural-language query."
+                    : "Try another keyword."
                   : "Approved assets will appear here."}
               </p>
             </div>
@@ -229,6 +285,7 @@ const AssetBrowser = () => {
         </section>
       </div>
 
+      {/* MODAL */}
       {selectedAsset && (
         <AssetModal
           asset={selectedAsset}

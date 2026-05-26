@@ -51,7 +51,7 @@ const AssetCard = ({
             )}
           </div>
 
-          {score !== undefined && (
+          {typeof score === "number" && (
             <div className="asset-score-badge">
               {Math.round(score * 100)}%{" "}
               {searchMode === "hybrid" ? "hybrid" : "match"}
@@ -60,6 +60,7 @@ const AssetCard = ({
 
           <div className="asset-card-front-info">
             <span className="asset-card-name">{assetName}</span>
+
             <span className="asset-card-type">
               {icon} {assetType}
             </span>
@@ -75,6 +76,7 @@ const AssetCard = ({
 
             <div className="asset-card-meta">
               {domain && <span className="badge badge-accent">{domain}</span>}
+
               <span
                 className={`badge ${
                   status === "approved"
@@ -88,19 +90,22 @@ const AssetCard = ({
               </span>
             </div>
 
-            {/* SCORE BREAKDOWN — hybrid only */}
-            {searchMode === "hybrid" && semanticScore !== null && (
-              <div className="asset-scores">
-                <div className="asset-score-row">
-                  <span>🧠 Semantic</span>
-                  <span>{Math.round(semanticScore * 100)}%</span>
+            {/* HYBRID SCORE BREAKDOWN */}
+            {searchMode === "hybrid" &&
+              typeof semanticScore === "number" &&
+              typeof keywordScore === "number" && (
+                <div className="asset-scores">
+                  <div className="asset-score-row">
+                    <span>🧠 Semantic</span>
+                    <span>{Math.round(semanticScore * 100)}%</span>
+                  </div>
+
+                  <div className="asset-score-row">
+                    <span>🔑 Keyword</span>
+                    <span>{Math.round(keywordScore * 100)}%</span>
+                  </div>
                 </div>
-                <div className="asset-score-row">
-                  <span>🔑 Keyword</span>
-                  <span>{Math.round(keywordScore * 100)}%</span>
-                </div>
-              </div>
-            )}
+              )}
 
             {tags.length > 0 && (
               <div className="asset-card-tags">
