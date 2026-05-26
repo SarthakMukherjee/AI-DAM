@@ -19,7 +19,7 @@ from app.ai.vectorstore.vector_query_service import (
 # ENTERPRISE SIMILARITY THRESHOLD
 # ---------------------------------------------------------
 
-MINIMUM_SIMILARITY_SCORE = 0.25
+MINIMUM_SIMILARITY_SCORE = 0.45
 
 
 # ---------------------------------------------------------
