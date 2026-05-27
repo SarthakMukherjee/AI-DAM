@@ -1,6 +1,11 @@
 ﻿import { useState } from "react";
+
+import { Check, UploadCloud, ArrowRight, ArrowLeft, X } from "lucide-react";
+
 import api from "../../api/axios";
+
 import Layout from "../../components/common/Layout";
+
 import "../../styles/upload.css";
 
 const STEPS = ["Mandatory", "Business", "Content", "Upload"];
@@ -65,12 +70,18 @@ const defaultForm = {
 
 const UploadAsset = () => {
   const [step, setStep] = useState(0);
+
   const [form, setForm] = useState(defaultForm);
+
   const [file, setFile] = useState(null);
 
   const [loading, setLoading] = useState(false);
+
   const [success, setSuccess] = useState(false);
+
   const [error, setError] = useState("");
+
+  // CHANGE
 
   const handleChange = (e) => {
     setForm({
@@ -80,6 +91,8 @@ const UploadAsset = () => {
 
     setError("");
   };
+
+  // NEXT
 
   const handleNext = () => {
     if (step === 0) {
@@ -91,42 +104,59 @@ const UploadAsset = () => {
         !form.owner
       ) {
         setError("Please fill in all mandatory fields.");
+
         return;
       }
     }
 
     setError("");
+
     setStep((s) => s + 1);
   };
 
+  // BACK
+
   const handleBack = () => {
     setError("");
+
     setStep((s) => s - 1);
   };
+
+  // SUBMIT
 
   const handleSubmit = async () => {
     if (!file) {
       setError("Please select a file.");
+
       return;
     }
 
     setLoading(true);
+
     setError("");
 
     const metadata = {
       mandatory: {
         asset_name: form.asset_name,
+
         asset_type: form.asset_type,
+
         description: form.description,
+
         created_by: form.created_by,
+
         usage_rights: form.usage_rights,
+
         owner: form.owner,
       },
 
       business: {
         domain: form.domain,
+
         use_case: form.use_case,
+
         audience: form.audience,
+
         funnel_stage: form.funnel_stage,
       },
 
@@ -148,6 +178,7 @@ const UploadAsset = () => {
     const formData = new FormData();
 
     formData.append("file", file);
+
     formData.append("metadata", JSON.stringify(metadata));
 
     try {
@@ -158,14 +189,16 @@ const UploadAsset = () => {
       });
 
       setSuccess(true);
+
       setForm(defaultForm);
+
       setFile(null);
+
       setStep(0);
     } catch (err) {
       const detail = err?.response?.data?.detail;
 
       if (Array.isArray(detail)) {
-        // FastAPI / Pydantic validation errors
         setError(detail.map((e) => e.msg).join(", "));
       } else {
         setError(detail || "Upload failed. Please try again.");
@@ -178,6 +211,8 @@ const UploadAsset = () => {
   return (
     <Layout>
       <div className="upload-page">
+        {/* HEADER */}
+
         <div className="admin-header">
           <div>
             <h1 className="admin-title">Upload Asset</h1>
@@ -188,20 +223,26 @@ const UploadAsset = () => {
           </div>
         </div>
 
+        {/* SUCCESS */}
+
         {success && (
           <div className="upload-success">
-            Asset uploaded successfully and sent for review!
+            <span>Asset uploaded successfully and sent for review!</span>
+
             <button
               className="upload-success-close"
               onClick={() => setSuccess(false)}
             >
-              ✕
+              <X size={16} />
             </button>
           </div>
         )}
 
+        {/* WIZARD */}
+
         <div className="upload-wizard">
-          {/* STEP INDICATORS */}
+          {/* STEPS */}
+
           <div className="wizard-steps">
             {STEPS.map((label, i) => (
               <div
@@ -214,15 +255,20 @@ const UploadAsset = () => {
                       : ""
                 }`}
               >
-                <div className="wizard-step-num">{i < step ? "✓" : i + 1}</div>
+                <div className="wizard-step-num">
+                  {i < step ? <Check size={14} /> : i + 1}
+                </div>
 
                 <span className="wizard-step-label">{label}</span>
               </div>
             ))}
           </div>
 
+          {/* BODY */}
+
           <div className="wizard-body">
-            {/* STEP 0 — MANDATORY */}
+            {/* STEP 0 */}
+
             {step === 0 && (
               <div className="wizard-fields">
                 <h2 className="wizard-section-title">Mandatory Information</h2>
@@ -303,10 +349,13 @@ const UploadAsset = () => {
               </div>
             )}
 
-            {/* STEP 1 — BUSINESS */}
+            {/* STEP 1 */}
+
             {step === 1 && (
               <div className="wizard-fields">
                 <h2 className="wizard-section-title">Business Metadata</h2>
+
+                {/* ROW 1 */}
 
                 <div className="upload-row">
                   <div className="form-group">
@@ -341,6 +390,8 @@ const UploadAsset = () => {
                     </select>
                   </div>
                 </div>
+
+                {/* ROW 2 */}
 
                 <div className="upload-row">
                   <div className="form-group">
@@ -378,7 +429,8 @@ const UploadAsset = () => {
               </div>
             )}
 
-            {/* STEP 2 — CONTENT */}
+            {/* STEP 2 */}
+
             {step === 2 && (
               <div className="wizard-fields">
                 <h2 className="wizard-section-title">Content Metadata</h2>
@@ -390,7 +442,7 @@ const UploadAsset = () => {
                     name="keywords"
                     value={form.keywords}
                     onChange={handleChange}
-                    placeholder="AI, dashboard, analytics (comma separated)"
+                    placeholder="AI, dashboard, analytics"
                   />
                 </div>
 
@@ -401,7 +453,7 @@ const UploadAsset = () => {
                     name="visual_elements"
                     value={form.visual_elements}
                     onChange={handleChange}
-                    placeholder="charts, UI, icons (comma separated)"
+                    placeholder="charts, UI, icons"
                   />
                 </div>
 
@@ -419,7 +471,8 @@ const UploadAsset = () => {
               </div>
             )}
 
-            {/* STEP 3 — FILE */}
+            {/* STEP 3 */}
+
             {step === 3 && (
               <div className="wizard-fields">
                 <h2 className="wizard-section-title">Upload File</h2>
@@ -432,7 +485,9 @@ const UploadAsset = () => {
                 >
                   {file ? (
                     <>
-                      <span className="upload-dropzone-icon">✅</span>
+                      <div className="upload-dropzone-icon upload-dropzone-icon--success">
+                        <Check size={38} />
+                      </div>
 
                       <p className="upload-dropzone-name">{file.name}</p>
 
@@ -444,6 +499,7 @@ const UploadAsset = () => {
                         className="upload-remove-file"
                         onClick={(e) => {
                           e.stopPropagation();
+
                           setFile(null);
                         }}
                       >
@@ -452,7 +508,9 @@ const UploadAsset = () => {
                     </>
                   ) : (
                     <>
-                      <span className="upload-dropzone-icon">📁</span>
+                      <div className="upload-dropzone-icon">
+                        <UploadCloud size={42} />
+                      </div>
 
                       <p>Click to select a file</p>
 
@@ -467,7 +525,9 @@ const UploadAsset = () => {
                   id="file-input"
                   type="file"
                   accept="image/jpeg,image/png,video/mp4,application/pdf"
-                  style={{ display: "none" }}
+                  style={{
+                    display: "none",
+                  }}
                   onChange={(e) => setFile(e.target.files[0])}
                 />
 
@@ -476,44 +536,55 @@ const UploadAsset = () => {
 
                   <div className="summary-row">
                     <span>Asset Name</span>
+
                     <span>{form.asset_name}</span>
                   </div>
 
                   <div className="summary-row">
                     <span>Type</span>
+
                     <span>{form.asset_type}</span>
                   </div>
 
                   <div className="summary-row">
                     <span>Domain</span>
+
                     <span>{form.domain}</span>
                   </div>
 
                   <div className="summary-row">
                     <span>Owner</span>
+
                     <span>{form.owner}</span>
                   </div>
 
                   <div className="summary-row">
                     <span>Tone</span>
+
                     <span>{form.tone}</span>
                   </div>
                 </div>
               </div>
             )}
 
+            {/* ERROR */}
+
             {error && <div className="auth-error">{error}</div>}
+
+            {/* NAV */}
 
             <div className="wizard-nav">
               {step > 0 && (
                 <button className="wizard-btn-back" onClick={handleBack}>
-                  ← Back
+                  <ArrowLeft size={16} />
+                  Back
                 </button>
               )}
 
               {step < STEPS.length - 1 ? (
                 <button className="wizard-btn-next" onClick={handleNext}>
-                  Next →
+                  Next
+                  <ArrowRight size={16} />
                 </button>
               ) : (
                 <button
@@ -521,7 +592,14 @@ const UploadAsset = () => {
                   onClick={handleSubmit}
                   disabled={loading}
                 >
-                  {loading ? <span className="btn-loader" /> : "Upload Asset"}
+                  {loading ? (
+                    <span className="btn-loader" />
+                  ) : (
+                    <>
+                      <UploadCloud size={16} />
+                      Upload Asset
+                    </>
+                  )}
                 </button>
               )}
             </div>

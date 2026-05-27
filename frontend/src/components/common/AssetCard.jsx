@@ -1,10 +1,12 @@
+import { Image, Video, FileText, Folder } from "lucide-react";
+
 import "../../styles/assetcard.css";
 
 const TYPE_ICON = {
-  "image/jpeg": "🖼️",
-  "image/png": "🖼️",
-  "video/mp4": "🎬",
-  "application/pdf": "📄",
+  "image/jpeg": <Image size={22} className="asset-file-icon image" />,
+  "image/png": <Image size={22} className="asset-file-icon image" />,
+  "video/mp4": <Video size={22} className="asset-file-icon video" />,
+  "application/pdf": <FileText size={22} className="asset-file-icon pdf" />,
 };
 
 const AssetCard = ({
@@ -15,7 +17,9 @@ const AssetCard = ({
   keywordScore,
   searchMode,
 }) => {
-  const icon = TYPE_ICON[asset.mime_type] || "📁";
+  const icon = TYPE_ICON[asset.mime_type] || (
+    <Folder size={22} className="asset-file-icon default" />
+  );
 
   const assetName =
     asset.asset_metadata?.mandatory?.asset_name || asset.original_filename;
@@ -90,18 +94,17 @@ const AssetCard = ({
               </span>
             </div>
 
-            {/* HYBRID SCORE BREAKDOWN */}
             {searchMode === "hybrid" &&
               typeof semanticScore === "number" &&
               typeof keywordScore === "number" && (
                 <div className="asset-scores">
                   <div className="asset-score-row">
-                    <span>🧠 Semantic</span>
+                    <span>Semantic</span>
                     <span>{Math.round(semanticScore * 100)}%</span>
                   </div>
 
                   <div className="asset-score-row">
-                    <span>🔑 Keyword</span>
+                    <span>Keyword</span>
                     <span>{Math.round(keywordScore * 100)}%</span>
                   </div>
                 </div>

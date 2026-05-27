@@ -1,7 +1,13 @@
 import { useContext } from "react";
+
+import { Menu, LogOut, Hexagon } from "lucide-react";
+
 import { Link, useNavigate } from "react-router-dom";
+
 import AuthContext from "../../context/AuthContext";
+
 import NotificationBell from "./NotificationBell";
+
 import "../../styles/navbar.css";
 
 const ROLE_LABEL = {
@@ -13,51 +19,69 @@ const ROLE_LABEL = {
 
 const Navbar = ({ onToggleSidebar }) => {
   const { user, logout } = useContext(AuthContext);
+
   const navigate = useNavigate();
 
   const handleLogout = async () => {
     await logout();
+
     navigate("/login");
   };
 
   return (
     <nav className="navbar">
       {/* LEFT */}
+
       <div className="navbar-left">
         <button
           className="navbar-toggle"
           onClick={onToggleSidebar}
           title="Toggle sidebar"
         >
-          ☰
+          <Menu size={18} />
         </button>
+
         <Link to="/" className="navbar-brand">
-          <span className="navbar-brand-icon">⬡</span>
-          <span className="navbar-brand-name">AI-DAM</span>
+          <div className="navbar-brand-icon">
+            <Hexagon size={18} />
+          </div>
+
+          <div className="navbar-brand-text">
+            <span className="navbar-brand-name">AI-DAM</span>
+
+            <span className="navbar-brand-sub">Digital Asset Manager</span>
+          </div>
         </Link>
       </div>
 
       {/* RIGHT */}
-      <div className="navbar-right">
-        {/* notifications — only for admin and super_admin */}
-        {user?.role === "admin" || user?.role === "super_admin" ? (
-          <NotificationBell />
-        ) : null}
 
-        {/* user pill */}
+      <div className="navbar-right">
+        {/* notifications */}
+
+        {(user?.role === "admin" || user?.role === "super_admin") && (
+          <NotificationBell />
+        )}
+
+        {/* USER */}
+
         <div className="navbar-user">
           <div className="navbar-avatar">
             {user?.full_name?.charAt(0).toUpperCase()}
           </div>
+
           <div className="navbar-user-info">
             <span className="navbar-user-name">{user?.full_name}</span>
+
             <span className="navbar-user-role">{ROLE_LABEL[user?.role]}</span>
           </div>
         </div>
 
-        {/* logout */}
+        {/* LOGOUT */}
+
         <button className="navbar-logout" onClick={handleLogout}>
-          Sign out
+          <LogOut size={16} />
+          <span>Sign out</span>
         </button>
       </div>
     </nav>

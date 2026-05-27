@@ -1,12 +1,26 @@
 import { useEffect } from "react";
+
+import {
+  Image,
+  Video,
+  FileText,
+  Folder,
+  Download,
+  Trash2,
+  X,
+} from "lucide-react";
+
 import api from "../../api/axios";
 import "../../styles/assetmodal.css";
 
 const TYPE_ICON = {
-  "image/jpeg": "🖼️",
-  "image/png": "🖼️",
-  "video/mp4": "🎬",
-  "application/pdf": "📄",
+  "image/jpeg": <Image size={22} className="modal-file-icon image" />,
+
+  "image/png": <Image size={22} className="modal-file-icon image" />,
+
+  "video/mp4": <Video size={22} className="modal-file-icon video" />,
+
+  "application/pdf": <FileText size={22} className="modal-file-icon pdf" />,
 };
 
 const AssetModal = ({ asset, onClose, onDelete, showDelete }) => {
@@ -25,9 +39,11 @@ const AssetModal = ({ asset, onClose, onDelete, showDelete }) => {
 
   const content = asset.asset_metadata?.content || {};
 
-  const icon = TYPE_ICON[asset.mime_type] || "📁";
+  const icon = TYPE_ICON[asset.mime_type] || (
+    <Folder size={22} className="modal-file-icon default" />
+  );
 
-  // close on ESC
+  // CLOSE ON ESC
   useEffect(() => {
     const handler = (e) => {
       if (e.key === "Escape") {
@@ -42,16 +58,10 @@ const AssetModal = ({ asset, onClose, onDelete, showDelete }) => {
     };
   }, [onClose]);
 
-  // =========================================
   // DOWNLOAD HANDLER
-  // =========================================
-
   const handleDownload = async () => {
     try {
-      // =====================================
-      // LOCAL FILES (PDFS ETC)
-      // =====================================
-
+      // LOCAL FILES
       if (!asset.storage_path?.startsWith("http")) {
         const res = await api.get(`/assets/${asset.id}/download`, {
           responseType: "blob",
@@ -78,10 +88,7 @@ const AssetModal = ({ asset, onClose, onDelete, showDelete }) => {
         return;
       }
 
-      // =====================================
       // CLOUDINARY FILES
-      // =====================================
-
       const link = document.createElement("a");
 
       link.href = asset.storage_path;
@@ -119,7 +126,7 @@ const AssetModal = ({ asset, onClose, onDelete, showDelete }) => {
           </div>
 
           <button className="modal-close" onClick={onClose}>
-            ✕
+            <X size={18} />
           </button>
         </div>
 
@@ -264,7 +271,8 @@ const AssetModal = ({ asset, onClose, onDelete, showDelete }) => {
                 className="modal-btn modal-btn-primary"
                 onClick={handleDownload}
               >
-                ⬇ Download
+                <Download size={16} />
+                Download
               </button>
 
               {asset.mime_type === "application/pdf" && (
@@ -283,7 +291,8 @@ const AssetModal = ({ asset, onClose, onDelete, showDelete }) => {
                   className="modal-btn modal-btn-danger"
                   onClick={onDelete}
                 >
-                  🗑 Delete
+                  <Trash2 size={16} />
+                  Delete
                 </button>
               )}
             </div>

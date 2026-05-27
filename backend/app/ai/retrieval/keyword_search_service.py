@@ -295,4 +295,4 @@ def _format_asset(
 
         "asset_metadata":
             asset.asset_metadata or {},
-    }
+    }   

@@ -1,4 +1,6 @@
 ﻿import { useState, useEffect } from "react";
+import { Search, Sparkles, Brain, X } from "lucide-react";
+
 import api from "../../api/axios";
 
 import UserLayout from "../../components/common/UserLayout";
@@ -9,9 +11,11 @@ import "../../styles/assetbrowser.css";
 
 const AssetBrowser = () => {
   const [assets, setAssets] = useState([]);
+
   const [selectedAsset, setSelectedAsset] = useState(null);
 
   const [searchQuery, setSearchQuery] = useState("");
+
   const [searchResults, setSearchResults] = useState(null);
 
   const [searchLoading, setSearchLoading] = useState(false);
@@ -20,14 +24,13 @@ const AssetBrowser = () => {
 
   const [loading, setLoading] = useState(true);
 
-  // ---------------------------------------------------
   // FETCH ASSETS
-  // ---------------------------------------------------
 
   useEffect(() => {
     const fetchAssets = async () => {
       try {
         const res = await api.get("/assets/");
+
         setAssets(res.data);
       } catch {
         setAssets([]);
@@ -39,9 +42,7 @@ const AssetBrowser = () => {
     fetchAssets();
   }, []);
 
-  // ---------------------------------------------------
   // SEARCH
-  // ---------------------------------------------------
 
   const handleSearch = async (e) => {
     e.preventDefault();
@@ -65,8 +66,6 @@ const AssetBrowser = () => {
         approved_only: true,
       });
 
-      console.log("SEARCH RESPONSE", res.data);
-
       const mapped = res.data.results.map((r) => ({
         id: r.asset_id,
 
@@ -84,15 +83,7 @@ const AssetBrowser = () => {
 
         asset_metadata: r.asset_metadata,
 
-        // ---------------------------------
-        // MAIN SCORE
-        // ---------------------------------
-
         score: searchMode === "hybrid" ? r.hybrid_score : r.score,
-
-        // ---------------------------------
-        // HYBRID BREAKDOWN
-        // ---------------------------------
 
         semantic_score:
           typeof r.semantic_score === "number" ? r.semantic_score : null,
@@ -127,18 +118,14 @@ const AssetBrowser = () => {
     }
   };
 
-  // ---------------------------------------------------
   // CLEAR SEARCH
-  // ---------------------------------------------------
 
   const handleClearSearch = () => {
     setSearchQuery("");
     setSearchResults(null);
   };
 
-  // ---------------------------------------------------
   // DISPLAY
-  // ---------------------------------------------------
 
   const displayAssets = searchResults ? searchResults.assets : assets;
 
@@ -148,18 +135,21 @@ const AssetBrowser = () => {
     <UserLayout>
       <div className="browser-page">
         {/* HEADER */}
+
         <div className="browser-header">
-          <div>
+          <div className="browser-heading">
             <h1 className="browser-title">Asset Library</h1>
 
             <p className="browser-subtitle">
-              Browse and download approved assets
+              Browse, search and download approved assets
             </p>
           </div>
 
-          {/* SEARCH */}
+          {/* SEARCH AREA */}
+
           <div className="browser-search-wrap">
-            {/* MODE */}
+            {/* TOGGLE */}
+
             <div className="search-mode-toggle">
               <button
                 type="button"
@@ -171,7 +161,8 @@ const AssetBrowser = () => {
                   setSearchResults(null);
                 }}
               >
-                ⚡ Hybrid
+                <Sparkles size={14} />
+                Hybrid
               </button>
 
               <button
@@ -184,18 +175,24 @@ const AssetBrowser = () => {
                   setSearchResults(null);
                 }}
               >
-                🧠 AI Search
+                <Brain size={14} />
+                AI Search
               </button>
             </div>
 
-            {/* FORM */}
+            {/* SEARCH */}
+
             <form className="browser-search" onSubmit={handleSearch}>
+              <div className="browser-search-icon">
+                <Search size={18} />
+              </div>
+
               <input
                 type="text"
                 placeholder={
                   searchMode === "hybrid"
-                    ? "Hybrid search — keyword + AI..."
-                    : "AI semantic search..."
+                    ? "Search using keywords + AI understanding..."
+                    : "Describe what you're looking for..."
                 }
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -208,7 +205,7 @@ const AssetBrowser = () => {
                   className="browser-clear-btn"
                   onClick={handleClearSearch}
                 >
-                  Clear
+                  <X size={16} />
                 </button>
               )}
 
@@ -224,6 +221,7 @@ const AssetBrowser = () => {
         </div>
 
         {/* SEARCH INFO */}
+
         {isSearchMode && (
           <div className="search-info-bar">
             <span className="search-info-query">
@@ -232,23 +230,28 @@ const AssetBrowser = () => {
 
             <span className="search-info-meta">
               {searchResults.total} result
-              {searchResults.total !== 1 ? "s" : ""}
-              &nbsp;·&nbsp;
+              {searchResults.total !== 1 ? "s" : ""} ·{" "}
               {searchResults.mode === "hybrid"
-                ? "⚡ hybrid search"
-                : "🧠 AI semantic search"}
+                ? "Hybrid Search"
+                : "AI Semantic Search"}
             </span>
           </div>
         )}
 
         {/* ASSETS */}
+
         <section className="browser-section">
           {!isSearchMode && (
             <h2 className="browser-section-title">All Assets</h2>
           )}
 
           {loading && !isSearchMode ? (
-            <div className="flex-center" style={{ padding: "4rem" }}>
+            <div
+              className="flex-center"
+              style={{
+                padding: "4rem",
+              }}
+            >
               <div className="loader" />
             </div>
           ) : displayAssets.length === 0 ? (
@@ -262,8 +265,8 @@ const AssetBrowser = () => {
               <p>
                 {isSearchMode
                   ? searchResults.mode === "semantic"
-                    ? "Try a descriptive natural-language query."
-                    : "Try another keyword."
+                    ? "Try a more descriptive natural-language query."
+                    : "Try different keywords."
                   : "Approved assets will appear here."}
               </p>
             </div>
@@ -286,6 +289,7 @@ const AssetBrowser = () => {
       </div>
 
       {/* MODAL */}
+
       {selectedAsset && (
         <AssetModal
           asset={selectedAsset}

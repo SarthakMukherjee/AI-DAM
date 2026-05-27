@@ -273,3 +273,41 @@
     border-bottom: 1px solid var(--border);
   }
 }
+
+/* -----------------------------------
+   Icons Updated
+----------------------------------- */
+.modal-file-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-file-icon.image {
+  color: #3b82f6;
+}
+
+.modal-file-icon.video {
+  color: #8b5cf6;
+}
+
+.modal-file-icon.pdf {
+  color: #ef4444;
+}
+
+.modal-file-icon.default {
+  color: #94a3b8;
+}
+
+.modal-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+}
+
+.modal-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
