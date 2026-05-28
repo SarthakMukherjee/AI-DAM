@@ -3,10 +3,13 @@ import { Image, Video, FileText, Folder } from "lucide-react";
 import "../../styles/assetcard.css";
 
 const TYPE_ICON = {
-  "image/jpeg": <Image size={22} className="asset-file-icon image" />,
-  "image/png": <Image size={22} className="asset-file-icon image" />,
-  "video/mp4": <Video size={22} className="asset-file-icon video" />,
-  "application/pdf": <FileText size={22} className="asset-file-icon pdf" />,
+  "image/jpeg": <Image size={18} className="asset-file-icon image" />,
+
+  "image/png": <Image size={18} className="asset-file-icon image" />,
+
+  "video/mp4": <Video size={18} className="asset-file-icon video" />,
+
+  "application/pdf": <FileText size={18} className="asset-file-icon pdf" />,
 };
 
 const AssetCard = ({
@@ -18,7 +21,7 @@ const AssetCard = ({
   searchMode,
 }) => {
   const icon = TYPE_ICON[asset.mime_type] || (
-    <Folder size={22} className="asset-file-icon default" />
+    <Folder size={18} className="asset-file-icon default" />
   );
 
   const assetName =
@@ -30,7 +33,7 @@ const AssetCard = ({
 
   const domain = asset.asset_metadata?.business?.domain || "";
 
-  const assetType = asset.asset_metadata?.mandatory?.asset_type || "";
+  const assetType = asset.asset_metadata?.mandatory?.asset_type || "asset";
 
   const status = asset.status;
 
@@ -46,6 +49,7 @@ const AssetCard = ({
     <div className="asset-card" onClick={onClick}>
       <div className="asset-card-inner">
         {/* FRONT */}
+
         <div className="asset-card-front">
           <div className="asset-card-thumb">
             {hasPreview ? (
@@ -53,25 +57,34 @@ const AssetCard = ({
             ) : (
               <div className="asset-card-icon">{icon}</div>
             )}
-          </div>
 
-          {typeof score === "number" && (
-            <div className="asset-score-badge">
-              {Math.round(score * 100)}%{" "}
-              {searchMode === "hybrid" ? "hybrid" : "match"}
-            </div>
-          )}
+            {typeof score === "number" && (
+              <div className="asset-score-badge">
+                {Math.round(score * 100)}%
+                {searchMode === "hybrid" ? " hybrid" : " match"}
+              </div>
+            )}
+          </div>
 
           <div className="asset-card-front-info">
             <span className="asset-card-name">{assetName}</span>
 
-            <span className="asset-card-type">
-              {icon} {assetType}
-            </span>
+            <div className="asset-card-meta-row">
+              <span className="asset-card-type">
+                {icon}
+
+                {assetType}
+              </span>
+
+              {asset.version > 1 && (
+                <span className="asset-version-chip">v{asset.version}</span>
+              )}
+            </div>
           </div>
         </div>
 
         {/* BACK */}
+
         <div className="asset-card-back">
           <div className="asset-card-back-content">
             <p className="asset-card-desc">
@@ -100,11 +113,13 @@ const AssetCard = ({
                 <div className="asset-scores">
                   <div className="asset-score-row">
                     <span>Semantic</span>
+
                     <span>{Math.round(semanticScore * 100)}%</span>
                   </div>
 
                   <div className="asset-score-row">
                     <span>Keyword</span>
+
                     <span>{Math.round(keywordScore * 100)}%</span>
                   </div>
                 </div>

@@ -8,9 +8,15 @@ import {
   Download,
   Trash2,
   X,
+  Copy,
+  GitBranch,
+  // Sparkles,
 } from "lucide-react";
 
+// import { useNavigate } from "react-router-dom";
+
 import api from "../../api/axios";
+
 import "../../styles/assetmodal.css";
 
 const TYPE_ICON = {
@@ -24,6 +30,8 @@ const TYPE_ICON = {
 };
 
 const AssetModal = ({ asset, onClose, onDelete, showDelete }) => {
+  // const navigate = useNavigate();
+
   const assetName =
     asset.asset_metadata?.mandatory?.asset_name || asset.original_filename;
 
@@ -44,6 +52,7 @@ const AssetModal = ({ asset, onClose, onDelete, showDelete }) => {
   );
 
   // CLOSE ON ESC
+
   useEffect(() => {
     const handler = (e) => {
       if (e.key === "Escape") {
@@ -58,10 +67,24 @@ const AssetModal = ({ asset, onClose, onDelete, showDelete }) => {
     };
   }, [onClose]);
 
+  // COPY ASSET ID
+
+  const copyAssetId = async () => {
+    try {
+      await navigator.clipboard.writeText(asset.id);
+
+      alert("Asset ID copied!");
+    } catch {
+      alert("Failed to copy asset ID");
+    }
+  };
+
   // DOWNLOAD HANDLER
+
   const handleDownload = async () => {
     try {
       // LOCAL FILES
+
       if (!asset.storage_path?.startsWith("http")) {
         const res = await api.get(`/assets/${asset.id}/download`, {
           responseType: "blob",
@@ -89,6 +112,7 @@ const AssetModal = ({ asset, onClose, onDelete, showDelete }) => {
       }
 
       // CLOUDINARY FILES
+
       const link = document.createElement("a");
 
       link.href = asset.storage_path;
@@ -250,6 +274,58 @@ const AssetModal = ({ asset, onClose, onDelete, showDelete }) => {
               <span className="modal-detail-value">v{asset.version}</span>
             </div>
 
+            {/* ASSET ID */}
+
+            <div className="modal-detail-group">
+              <span className="modal-detail-label">Asset ID</span>
+
+              <div className="modal-id-row">
+                <code className="modal-id-code">{asset.id}</code>
+
+                <button className="modal-copy-btn" onClick={copyAssetId}>
+                  <Copy size={14} />
+                </button>
+              </div>
+            </div>
+
+            {/* PARENT ASSET */}
+
+            {asset.parent_id && (
+              <div className="modal-detail-group">
+                <span className="modal-detail-label">Parent Asset</span>
+
+                <div className="modal-version-row">
+                  <GitBranch size={14} />
+
+                  <code className="modal-id-code">{asset.parent_id}</code>
+                </div>
+              </div>
+            )}
+
+            {/* VERSION STATUS */}
+
+            <div className="modal-detail-group">
+              <span className="modal-detail-label">Version Status</span>
+
+              <div className="modal-version-badges">
+                <span
+                  className={`version-chip ${
+                    asset.is_latest ? "version-chip-latest" : "version-chip-old"
+                  }`}
+                >
+                  {asset.is_latest ? "Latest Version" : "Outdated Version"}
+                </span>
+
+                {asset.parent_id && (
+                  <span className="version-chip version-chip-versioned">
+                    Versioned Asset
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* TAGS */}
+
             {tags.length > 0 && (
               <div className="modal-detail-group">
                 <span className="modal-detail-label">AI Tags</span>
@@ -274,6 +350,14 @@ const AssetModal = ({ asset, onClose, onDelete, showDelete }) => {
                 <Download size={16} />
                 Download
               </button>
+
+              {/* <button
+                className="modal-btn modal-btn-version"
+                onClick={() => navigate(`/admin/upload?parent_id=${asset.id}`)}
+              >
+                <Sparkles size={16} />
+                Upload New Version
+              </button> */}
 
               {asset.mime_type === "application/pdf" && (
                 <a

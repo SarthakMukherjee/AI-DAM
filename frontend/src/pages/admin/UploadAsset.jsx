@@ -1,6 +1,13 @@
-﻿import { useState } from "react";
+﻿import { useEffect, useState } from "react";
 
-import { Check, UploadCloud, ArrowRight, ArrowLeft, X } from "lucide-react";
+import {
+  Check,
+  UploadCloud,
+  ArrowRight,
+  ArrowLeft,
+  X,
+  GitBranch,
+} from "lucide-react";
 
 import api from "../../api/axios";
 
@@ -54,18 +61,32 @@ const TONE_TYPES = [
 
 const defaultForm = {
   asset_name: "",
+
   asset_type: "image",
+
   description: "",
+
   created_by: "",
+
   usage_rights: "",
+
   owner: "",
+
   domain: "AI",
+
   use_case: "website",
+
   audience: "enterprise",
+
   funnel_stage: "awareness",
+
   keywords: "",
+
   visual_elements: "",
+
   tone: "professional",
+
+  parent_id: "",
 };
 
 const UploadAsset = () => {
@@ -81,7 +102,27 @@ const UploadAsset = () => {
 
   const [error, setError] = useState("");
 
-  // CHANGE
+  const [isVersionUpdate, setIsVersionUpdate] = useState(false);
+
+  const [availableAssets, setAvailableAssets] = useState([]);
+
+  const [selectedParentAsset, setSelectedParentAsset] = useState(null);
+
+  // FETCH ASSETS
+
+  useEffect(() => {
+    const fetchAssets = async () => {
+      try {
+        const res = await api.get("/assets");
+
+        setAvailableAssets(res.data || []);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    fetchAssets();
+  }, []);
 
   const handleChange = (e) => {
     setForm({
@@ -91,8 +132,6 @@ const UploadAsset = () => {
 
     setError("");
   };
-
-  // NEXT
 
   const handleNext = () => {
     if (step === 0) {
@@ -114,15 +153,11 @@ const UploadAsset = () => {
     setStep((s) => s + 1);
   };
 
-  // BACK
-
   const handleBack = () => {
     setError("");
 
     setStep((s) => s - 1);
   };
-
-  // SUBMIT
 
   const handleSubmit = async () => {
     if (!file) {
@@ -181,6 +216,10 @@ const UploadAsset = () => {
 
     formData.append("metadata", JSON.stringify(metadata));
 
+    if (isVersionUpdate && selectedParentAsset) {
+      formData.append("parent_id", selectedParentAsset.id);
+    }
+
     try {
       await api.post("/assets/upload", formData, {
         headers: {
@@ -195,6 +234,10 @@ const UploadAsset = () => {
       setFile(null);
 
       setStep(0);
+
+      setSelectedParentAsset(null);
+
+      setIsVersionUpdate(false);
     } catch (err) {
       const detail = err?.response?.data?.detail;
 
@@ -211,8 +254,6 @@ const UploadAsset = () => {
   return (
     <Layout>
       <div className="upload-page">
-        {/* HEADER */}
-
         <div className="admin-header">
           <div>
             <h1 className="admin-title">Upload Asset</h1>
@@ -222,8 +263,6 @@ const UploadAsset = () => {
             </p>
           </div>
         </div>
-
-        {/* SUCCESS */}
 
         {success && (
           <div className="upload-success">
@@ -238,11 +277,7 @@ const UploadAsset = () => {
           </div>
         )}
 
-        {/* WIZARD */}
-
         <div className="upload-wizard">
-          {/* STEPS */}
-
           <div className="wizard-steps">
             {STEPS.map((label, i) => (
               <div
@@ -264,8 +299,6 @@ const UploadAsset = () => {
             ))}
           </div>
 
-          {/* BODY */}
-
           <div className="wizard-body">
             {/* STEP 0 */}
 
@@ -280,7 +313,7 @@ const UploadAsset = () => {
                     name="asset_name"
                     value={form.asset_name}
                     onChange={handleChange}
-                    placeholder="e.g. Q1 Marketing Banner"
+                    placeholder="e.g. Marketing Banner"
                   />
                 </div>
 
@@ -307,7 +340,6 @@ const UploadAsset = () => {
                     name="description"
                     value={form.description}
                     onChange={handleChange}
-                    placeholder="Describe what this asset is used for..."
                     rows={3}
                   />
                 </div>
@@ -320,7 +352,6 @@ const UploadAsset = () => {
                       name="created_by"
                       value={form.created_by}
                       onChange={handleChange}
-                      placeholder="Your name"
                     />
                   </div>
 
@@ -331,7 +362,6 @@ const UploadAsset = () => {
                       name="owner"
                       value={form.owner}
                       onChange={handleChange}
-                      placeholder="e.g. Marketing Team"
                     />
                   </div>
                 </div>
@@ -343,7 +373,6 @@ const UploadAsset = () => {
                     name="usage_rights"
                     value={form.usage_rights}
                     onChange={handleChange}
-                    placeholder="e.g. internal, commercial, restricted"
                   />
                 </div>
               </div>
@@ -355,7 +384,7 @@ const UploadAsset = () => {
               <div className="wizard-fields">
                 <h2 className="wizard-section-title">Business Metadata</h2>
 
-                {/* ROW 1 */}
+                {/* DOMAIN + USE CASE */}
 
                 <div className="upload-row">
                   <div className="form-group">
@@ -391,7 +420,7 @@ const UploadAsset = () => {
                   </div>
                 </div>
 
-                {/* ROW 2 */}
+                {/* AUDIENCE + FUNNEL STAGE */}
 
                 <div className="upload-row">
                   <div className="form-group">
@@ -442,7 +471,6 @@ const UploadAsset = () => {
                     name="keywords"
                     value={form.keywords}
                     onChange={handleChange}
-                    placeholder="AI, dashboard, analytics"
                   />
                 </div>
 
@@ -453,7 +481,6 @@ const UploadAsset = () => {
                     name="visual_elements"
                     value={form.visual_elements}
                     onChange={handleChange}
-                    placeholder="charts, UI, icons"
                   />
                 </div>
 
@@ -476,6 +503,66 @@ const UploadAsset = () => {
             {step === 3 && (
               <div className="wizard-fields">
                 <h2 className="wizard-section-title">Upload File</h2>
+
+                {/* VERSION TOGGLE */}
+
+                <div className="version-toggle">
+                  <label className="version-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={isVersionUpdate}
+                      onChange={(e) => setIsVersionUpdate(e.target.checked)}
+                    />
+
+                    <span>Upload as new version</span>
+                  </label>
+                </div>
+
+                {/* SELECT ASSET */}
+
+                {isVersionUpdate && (
+                  <div className="version-assets">
+                    <div className="version-assets-header">
+                      <GitBranch size={16} />
+
+                      <span>Select Existing Asset</span>
+                    </div>
+
+                    <div className="version-assets-list">
+                      {availableAssets.map((a) => {
+                        const name =
+                          a.asset_metadata?.mandatory?.asset_name ||
+                          a.original_filename;
+
+                        return (
+                          <div
+                            key={a.id}
+                            className={`version-asset-item ${
+                              selectedParentAsset?.id === a.id ? "selected" : ""
+                            }`}
+                            onClick={() => {
+                              setSelectedParentAsset(a);
+                            }}
+                          >
+                            <div>
+                              <strong>{name}</strong>
+
+                              <p>Version {a.version}</p>
+                            </div>
+
+                            {a.is_latest && (
+                              <span className="badge badge-success">
+                                Latest
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* DROPZONE */}
 
                 <div
                   className={`upload-dropzone ${
@@ -531,6 +618,8 @@ const UploadAsset = () => {
                   onChange={(e) => setFile(e.target.files[0])}
                 />
 
+                {/* SUMMARY */}
+
                 <div className="upload-summary">
                   <h3>Summary</h3>
 
@@ -546,32 +635,21 @@ const UploadAsset = () => {
                     <span>{form.asset_type}</span>
                   </div>
 
-                  <div className="summary-row">
-                    <span>Domain</span>
+                  {selectedParentAsset && (
+                    <div className="summary-row summary-row-version">
+                      <span>Updating Version Of</span>
 
-                    <span>{form.domain}</span>
-                  </div>
-
-                  <div className="summary-row">
-                    <span>Owner</span>
-
-                    <span>{form.owner}</span>
-                  </div>
-
-                  <div className="summary-row">
-                    <span>Tone</span>
-
-                    <span>{form.tone}</span>
-                  </div>
+                      <span>
+                        {selectedParentAsset.asset_metadata?.mandatory
+                          ?.asset_name || selectedParentAsset.original_filename}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
 
-            {/* ERROR */}
-
             {error && <div className="auth-error">{error}</div>}
-
-            {/* NAV */}
 
             <div className="wizard-nav">
               {step > 0 && (
