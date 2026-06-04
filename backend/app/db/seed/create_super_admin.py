@@ -91,7 +91,7 @@ if __name__ == "__main__":
     # -----------------------------------
 
     create_super_admin(
-        email="superadmin@yourdomain.com",
+        email="superadmin@gmail.com",
         full_name="Super Admin",
-        password="changeme123"
+        password="Super@123"
     )
