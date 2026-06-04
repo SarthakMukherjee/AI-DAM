@@ -6,7 +6,7 @@ import { useNavigate, Link } from "react-router-dom";
 
 import AuthContext from "../context/AuthContext";
 
-import "../styles/login.css";
+import "../styles/Login.css";
 
 const Register = () => {
   const { register } = useContext(AuthContext);

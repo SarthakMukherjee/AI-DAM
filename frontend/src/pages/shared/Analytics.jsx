@@ -1,6 +1,6 @@
 ﻿import { useState, useEffect } from "react";
 import api from "../../api/axios";
-import Layout from "../../components/common/Layout";
+import Layout from "../../components/common/layout";
 import "../../styles/analytics.css";
 
 const Analytics = () => {
