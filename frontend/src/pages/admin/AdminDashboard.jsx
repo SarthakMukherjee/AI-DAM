@@ -1,6 +1,6 @@
 ﻿import { useState, useEffect } from "react";
 import api from "../../api/axios";
-import Layout from "../../components/common/Layout";
+import Layout from "../../components/common/layout";
 import AssetCard from "../../components/common/AssetCard";
 import AssetModal from "../../components/common/AssetModal";
 import "../../styles/admindashboard.css";

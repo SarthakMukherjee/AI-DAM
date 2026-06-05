@@ -4,7 +4,7 @@ import { Users, ShieldCheck, UserCog, UserCheck, UserX } from "lucide-react";
 
 import api from "../../api/axios";
 
-import Layout from "../../components/common/Layout";
+import Layout from "../../components/common/layout";
 
 import "../../styles/usermanagement.css";
 
