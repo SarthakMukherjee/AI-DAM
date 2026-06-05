@@ -51,6 +51,7 @@ app.add_middleware(SlowAPIMiddleware)
 ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://localhost:3000",
+    "https://ai-dam-six.vercel.app",
     # "http://127.0.0.1:5173"
 ]
 
