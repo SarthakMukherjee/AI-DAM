@@ -35,7 +35,6 @@ const USE_CASES = [
   "social_media",
   "email",
   "presentation",
-  "internal",
   "advertisement",
   "other",
 ];
@@ -43,12 +42,19 @@ const USE_CASES = [
 const AUDIENCE_TYPES = [
   "enterprise",
   "consumer",
-  "internal",
+  "startup",
   "partner",
   "public",
+  "b2b",
 ];
 
-const FUNNEL_STAGES = ["awareness", "consideration", "decision", "retention"];
+const FUNNEL_STAGES = [
+  "awareness",
+  "consideration",
+  "decision",
+  "retention",
+  "conversion",
+];
 
 const TONE_TYPES = [
   "professional",
