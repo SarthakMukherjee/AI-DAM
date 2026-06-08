@@ -1,12 +1,19 @@
 import axios from "axios";
 
 const api = axios.create({
-  // Hardcode your Hugging Face space URL directly as the ultimate fallback string
   baseURL: import.meta.env.VITE_API_URL || "https://monojitve-dam.hf.space",
-  withCredentials: true,
   headers: {
     "Content-Type": "application/json",
   },
+  // withCredentials removed - no longer using cookies
+});
+
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem("access_token");
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
 });
 
 export default api;

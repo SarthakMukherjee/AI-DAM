@@ -76,64 +76,27 @@ def register(
 
 @router.post("/login")
 @limiter.limit("5/minute")
-def login(
-    request: Request,
-    response: Response,
-    body: LoginRequest,
-    db: Session = Depends(get_db)
-):
+def login(request: Request, body: LoginRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == body.email).first()
 
-    user = (
-        db.query(User)
-        .filter(User.email == body.email)
-        .first()
-    )
-
-    if not user or not verify_password(
-        body.password,
-        user.hashed_password
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password"
-        )
+    if not user or not verify_password(body.password, user.hashed_password):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
 
     if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Account is deactivated"
-        )
+        raise HTTPException(status_code=403, detail="Account is deactivated")
 
-    token = create_access_token(
-        data={"sub": user.id, "role": user.role}
-    )
+    token = create_access_token(data={"sub": user.id, "role": user.role})
 
-    # -----------------------------------
-    # SET httpOnly COOKIE
-    # httponly=True  → JS cannot read it
-    # samesite="lax" → CSRF protection
-    # secure=False   → set True in prod
-    #                  (requires HTTPS)
-    # max_age=3600   → 1 hour (matches JWT)
-    # -----------------------------------
-
-    response.set_cookie(
-        key="access_token",
-        value=token,
-        httponly=True,
-        samesite="lax",
-        secure=False,       # change to True in production
-        max_age=3600
-    )
-
+    # No more cookie - return token in body
     return {
+        "access_token": token,
+        "token_type": "bearer",
         "message": "Login successful",
         "role": user.role,
         "full_name": user.full_name,
         "email": user.email,
         "id": user.id
     }
-
 
 # -----------------------------------
 # LOGOUT
@@ -144,9 +107,10 @@ def login(
 def logout(response: Response):
 
     response.delete_cookie(
-        key="access_token",
-        httponly=True,
-        samesite="lax"
+    key="access_token",
+    httponly=True,
+    samesite="none",  # ✅ must match how it was set
+    secure=True,
     )
 
     return {"message": "Logged out successfully"}

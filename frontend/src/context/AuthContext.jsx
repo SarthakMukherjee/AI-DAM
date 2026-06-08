@@ -35,6 +35,7 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     const res = await api.post("/auth/login", { email, password });
+    localStorage.setItem("access_token", res.data.access_token);
     setUser({
       id: res.data.id,
       email: res.data.email,
@@ -50,6 +51,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     await api.post("/auth/logout");
+    localStorage.removeItem("access_token");
     setUser(null);
   };
 

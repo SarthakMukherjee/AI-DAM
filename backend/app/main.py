@@ -51,12 +51,10 @@ app.add_middleware(SlowAPIMiddleware)
 ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://localhost:3000",
-    "ai-dam-six.vercel.app",
-    "ai-dam-git-main-sarthak-ve-s-projects.vercel.app",
-    "ai-idaigqetz-sarthak-ve-s-projects.vercel.app"
-    # "http://127.0.0.1:5173"
+    "https://ai-dam-six.vercel.app",
+    "https://ai-dam-git-main-sarthak-ve-s-projects.vercel.app",
+    "https://ai-idaigqetz-sarthak-ve-s-projects.vercel.app",
 ]
- 
 
 app.add_middleware(
     CORSMiddleware,
