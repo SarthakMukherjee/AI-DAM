@@ -15,13 +15,13 @@ class AssetTypes(str, Enum):
 
 class DomainType(str, Enum):
     AI="AI"
-    STAFFING="staffing"
-    MARKETING="marketing"
-    SALES="sales"
-    FINANCE="finance"
-    HR="hr"
-    OPERATIONS="operations"
-    HEALTHCARE="healthcare"
+    STAFFING="Staffing"
+    MARKETING="Marketing"
+    SALES="Sales"
+    FINANCE="Finance"
+    HR="HR"
+    OPERATIONS="Operations"
+    HEALTHCARE="Healthcare"
 
 class UseCaseTypes(str, Enum):
     WEBSITE="website"
