@@ -2,7 +2,6 @@
 import api from "../../api/axios";
 import Layout from "../../components/common/layout";
 import "../../styles/analytics.css";
-import { API_BASE } from "../../api/axios";
 
 const Analytics = () => {
   const [topAssets, setTopAssets] = useState([]);
@@ -13,8 +12,11 @@ const Analytics = () => {
       try {
         const res = await api.get("/admin/analytics/most-used?limit=10");
 
+        console.log("Analytics Response:", res.data);
+
         setTopAssets(res.data.top_assets || []);
-      } catch {
+      } catch (err) {
+        console.error("Analytics fetch failed:", err);
         setTopAssets([]);
       } finally {
         setLoading(false);
@@ -57,11 +59,16 @@ const Analytics = () => {
           ) : (
             <div className="analytics-list">
               {topAssets.map((item, index) => {
-                const previewUrl = item.thumbnail_path?.startsWith("http")
-                  ? item.thumbnail_path
-                  : item.preview_path?.startsWith("http")
-                    ? item.preview_path
-                    : `${API_BASE}/assets/${item.asset_id}/preview`;
+                console.log("Analytics item:", item);
+
+                const previewUrl =
+                  item.thumbnail_url ||
+                  item.preview_url ||
+                  item.thumbnail_path ||
+                  item.preview_path ||
+                  "";
+
+                console.log("Preview URL:", previewUrl);
 
                 return (
                   <div key={item.asset_id} className="analytics-row">
@@ -72,8 +79,16 @@ const Analytics = () => {
                     <div className="analytics-thumb">
                       <img
                         src={previewUrl}
-                        alt={item.asset_name || item.original_filename}
+                        alt={
+                          item.asset_name || item.original_filename || "Asset"
+                        }
                         loading="lazy"
+                        onError={(e) => {
+                          console.error("Analytics image failed:", previewUrl);
+
+                          e.target.src =
+                            "https://via.placeholder.com/120x80?text=No+Image";
+                        }}
                       />
                     </div>
 
@@ -86,7 +101,7 @@ const Analytics = () => {
 
                         <div className="analytics-count">
                           {item.total_usage}
-                          <span>uses</span>
+                          <span> uses</span>
                         </div>
                       </div>
 
