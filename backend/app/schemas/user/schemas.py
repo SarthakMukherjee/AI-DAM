@@ -75,6 +75,10 @@ class AssetUsageResponse(BaseModel):
     asset_id: str
     original_filename: str
     asset_name: str
+
+    thumbnail_path: str | None = None
+    preview_path: str | None = None
+
     total_usage: int
 
 

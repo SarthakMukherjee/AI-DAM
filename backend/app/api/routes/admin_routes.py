@@ -247,6 +247,8 @@ def most_used_assets(
             Asset.id,
             Asset.original_filename,
             Asset.asset_metadata,
+            Asset.thumbnail_path,
+            Asset.preview_path,
             func.sum(
                 AssetUsage.usage_count
             ).label("total_usage")
@@ -255,7 +257,13 @@ def most_used_assets(
             AssetUsage,
             Asset.id == AssetUsage.asset_id
         )
-        .group_by(Asset.id)
+        .group_by(
+            Asset.id,
+            Asset.original_filename,
+            Asset.asset_metadata,
+            Asset.thumbnail_path,
+            Asset.preview_path
+        )
         .order_by(
             func.sum(
                 AssetUsage.usage_count
@@ -285,12 +293,15 @@ def most_used_assets(
                 asset_id=row.id,
                 original_filename=row.original_filename,
                 asset_name=asset_name,
+                thumbnail_path=row.thumbnail_path,
+                preview_path=row.preview_path,
                 total_usage=row.total_usage or 0
             )
         )
 
-    return TopAssetsResponse(top_assets=top_assets)
-
+    return TopAssetsResponse(
+        top_assets=top_assets
+    )
 
 @router.get("/analytics/asset/{asset_id}")
 def asset_usage(
