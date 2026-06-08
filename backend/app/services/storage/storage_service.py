@@ -1,37 +1,23 @@
 import uuid
 import os
-import aiofiles
 import shutil
 
 from fastapi import UploadFile
 from app.core.config.settings import settings
 
-# class StorageService:
-
-#     async def save_original_file(self, upload_file:UploadFile):
-#         extension = upload_file.filename.split(".")[-1]
-
-#         unique_filename = f"{uuid.uuid4()}.{extension}"
-
-#         save_path = os.path.join(
-#             settings.STORAGE_PATH,
-#             "originals",
-#             unique_filename
-#         )
-
-#         async with aiofiles.open(save_path, "wb") as out_file:
-#             content = await upload_file.read()
-#             await out_file.write(content)
-
-#             normalized_path = save_path.replace("\\", "/") #added on 15-05-26
-
-#         return unique_filename, normalized_path, content
 
 class StorageService:
-    async def save_to_temp(self, file:UploadFile):
 
-        extension = file.filename.split(".")[-1]
+    def __init__(self):
+        # ensure required directories exist on startup
+        for folder in ["temp", "originals", "thumbnails", "previews"]:
+            os.makedirs(
+                os.path.join(settings.STORAGE_PATH, folder),
+                exist_ok=True
+            )
 
+    async def save_to_temp(self, file: UploadFile):
+        extension = file.filename.split(".")[-1].lower()
         unique_filename = f"{uuid.uuid4()}.{extension}"
 
         temp_path = os.path.join(
@@ -46,12 +32,12 @@ class StorageService:
             buffer.write(content)
 
         return (
-            unique_filename, 
+            unique_filename,
             temp_path.replace("\\", "/"),
             content
         )
-    
-    def move_to_original(self, temp_path:str, filename:str):
+
+    def move_to_original(self, temp_path: str, filename: str):
         original_path = os.path.join(
             settings.STORAGE_PATH,
             "originals",
@@ -64,4 +50,12 @@ class StorageService:
 
     def delete_temp_file(self, temp_path: str):
         if os.path.exists(temp_path):
-            os.remove(temp_path)    
+            os.remove(temp_path)
+
+    def delete_local_file(self, file_path: str):
+        """Delete local file after successful cloud upload."""
+        try:
+            if file_path and os.path.exists(file_path) and not file_path.startswith("http"):
+                os.remove(file_path)
+        except Exception as e:
+            print(f"[STORAGE] Failed to delete local file {file_path}: {e}")

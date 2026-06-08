@@ -52,3 +52,4 @@ chromadb
 sentence-transformers
 
 cloudinary 
+httpx
