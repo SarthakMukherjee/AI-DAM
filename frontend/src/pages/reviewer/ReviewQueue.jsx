@@ -13,7 +13,6 @@ import {
 } from "lucide-react";
 
 import api from "../../api/axios";
-import { API_BASE } from "../../api/axios";
 
 import Layout from "../../components/common/layout";
 import AssetModal from "../../components/common/AssetModal";
@@ -31,24 +30,19 @@ const TYPE_ICON = {
 
 const ReviewQueue = () => {
   const [assets, setAssets] = useState([]);
-
   const [selectedAsset, setSelectedAsset] = useState(null);
-
   const [loading, setLoading] = useState(true);
-
   const [rejectReason, setRejectReason] = useState("");
-
   const [rejectingId, setRejectingId] = useState(null);
-
   const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => {
     const fetchQueue = async () => {
       try {
         const res = await api.get("/reviewer/queue");
-
         setAssets(res.data);
-      } catch {
+      } catch (err) {
+        console.error(err);
         setAssets([]);
       } finally {
         setLoading(false);
@@ -89,9 +83,7 @@ const ReviewQueue = () => {
       setAssets((prev) => prev.filter((a) => a.id !== assetId));
 
       setRejectingId(null);
-
       setRejectReason("");
-
       setSelectedAsset(null);
     } catch {
       alert("Rejection failed. Please try again.");
@@ -121,7 +113,6 @@ const ReviewQueue = () => {
 
           <div className="review-queue-count">
             <Clock3 size={16} />
-
             <span>{assets.length} pending</span>
           </div>
         </div>
@@ -140,7 +131,6 @@ const ReviewQueue = () => {
         ) : assets.length === 0 ? (
           <div className="empty-state">
             <h3>Queue is empty</h3>
-
             <p>All assets have been reviewed.</p>
           </div>
         ) : (
@@ -155,6 +145,12 @@ const ReviewQueue = () => {
               const tags =
                 asset.asset_metadata?.ai_enrichment?.ai_tags?.slice(0, 3) || [];
 
+              const previewUrl =
+                asset.thumbnail_path ||
+                asset.preview_path ||
+                asset.storage_path ||
+                "";
+
               return (
                 <div key={asset.id} className="review-card">
                   {/* THUMB */}
@@ -163,10 +159,17 @@ const ReviewQueue = () => {
                     className="review-card-thumb"
                     onClick={() => setSelectedAsset(asset)}
                   >
-                    {asset.thumbnail_path || asset.preview_path ? (
+                    {previewUrl ? (
                       <img
-                        src={`${API_BASE}/assets/${asset.id}/preview`}
+                        src={previewUrl}
                         alt={assetName}
+                        loading="lazy"
+                        onError={() => {
+                          console.error(
+                            "Review Queue image failed:",
+                            previewUrl,
+                          );
+                        }}
                       />
                     ) : (
                       <div className="review-card-icon">
@@ -176,7 +179,6 @@ const ReviewQueue = () => {
 
                     <div className="review-card-overlay">
                       <Eye size={18} />
-
                       <span>View Details</span>
                     </div>
                   </div>
@@ -191,7 +193,6 @@ const ReviewQueue = () => {
 
                       <span className="review-card-type">
                         <Icon size={14} />
-
                         {asset.mime_type}
                       </span>
                     </div>
@@ -235,7 +236,6 @@ const ReviewQueue = () => {
                             className="review-btn review-btn--ghost"
                             onClick={() => {
                               setRejectingId(null);
-
                               setRejectReason("");
                             }}
                           >
