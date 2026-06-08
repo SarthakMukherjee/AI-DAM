@@ -22,17 +22,25 @@ class DomainType(str, Enum):
     HR="HR"
     OPERATIONS="Operations"
     HEALTHCARE="Healthcare"
+    TECH="Tech"
+    DESIGN="Design"
 
 class UseCaseTypes(str, Enum):
+    EMAIL="email"
+    PRESENTATION="presentation"
     WEBSITE="website"
     CAMPAIGN="campaign"
     SALES="sales"
     SOCIAL_MEDIA="social_media"
+    ADVERTISEMENT="advertisment"
 
 class AudienceType(str, Enum):
     B2B="b2b"
     ENTERPRISE="enterprise"
     STARTUP="startup"
+    CONSUMER="consumer"
+    PARTNER="partner"
+
 
 class FunnelStage(str, Enum):
     AWARENESS="awareness"
@@ -43,4 +51,7 @@ class ToneType(str, Enum):
     PROFESSIONAL="professional"
     CASUAL="casual"
     TECHNICAL="technical"
+    FORMAL="formal"
+    FRIENDLY="friendly"
+    CREATIVE="creative"
 
