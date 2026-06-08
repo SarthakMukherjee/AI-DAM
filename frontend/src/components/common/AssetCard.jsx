@@ -1,6 +1,7 @@
 import { Image, Video, FileText, Folder } from "lucide-react";
 
 import "../../styles/assetcard.css";
+import { API_BASE } from "../../api/axios";
 
 const TYPE_ICON = {
   "image/jpeg": <Image size={18} className="asset-file-icon image" />,
@@ -41,7 +42,7 @@ const AssetCard = ({
     ? asset.thumbnail_path
     : asset.preview_path?.startsWith("http")
       ? asset.preview_path
-      : `http://localhost:8000/assets/${asset.id}/preview`;
+      : `${API_BASE}/assets/${asset.id}/preview`;
 
   const hasPreview = asset.thumbnail_path || asset.preview_path;
 

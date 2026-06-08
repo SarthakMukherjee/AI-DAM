@@ -2,6 +2,7 @@
 import api from "../../api/axios";
 import Layout from "../../components/common/layout";
 import "../../styles/analytics.css";
+import { API_BASE } from "../../api/axios";
 
 const Analytics = () => {
   const [topAssets, setTopAssets] = useState([]);
@@ -60,7 +61,7 @@ const Analytics = () => {
                   ? item.thumbnail_path
                   : item.preview_path?.startsWith("http")
                     ? item.preview_path
-                    : `http://localhost:8000/assets/${item.asset_id}/preview`;
+                    : `${API_BASE}/assets/${item.asset_id}/preview`;
 
                 return (
                   <div key={item.asset_id} className="analytics-row">

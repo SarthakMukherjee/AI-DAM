@@ -44,7 +44,6 @@ def list_all_assets(
     db: Session = Depends(get_db),
     _: User = Depends(require_admin)
 ):
-
     return db.query(Asset).all()
 
 
@@ -74,15 +73,22 @@ def delete_asset(
         )
 
     # ==========================================
-    # DELETE ANALYTICS / USAGE RECORDS FIRST
+    # DELETE RELATED RECORDS FIRST
+    # order matters — must delete child records
+    # before deleting the parent asset
     # ==========================================
 
     db.query(AssetUsage).filter(
         AssetUsage.asset_id == asset_id
     ).delete()
 
+    db.query(Notification).filter(
+        Notification.asset_id == asset_id
+    ).delete()
+
     # ==========================================
     # DELETE FILES / FOLDERS
+    # skip cloud URLs — nothing to delete locally
     # ==========================================
 
     paths_to_delete = [
@@ -96,39 +102,26 @@ def delete_asset(
         if not path:
             continue
 
+        if path.startswith("http"):
+            continue
+
         if os.path.exists(path):
-
             try:
-
-                # ------------------------------
-                # FILE
-                # ------------------------------
-
                 if os.path.isfile(path):
                     os.remove(path)
-
-                # ------------------------------
-                # DIRECTORY
-                # ------------------------------
-
                 elif os.path.isdir(path):
                     shutil.rmtree(path)
-
             except Exception as e:
-                print(f"Failed deleting path: {path}")
-                print(str(e))
+                print(f"Failed deleting path: {path} — {e}")
 
     # ==========================================
     # DELETE ASSET RECORD
     # ==========================================
 
     db.delete(asset)
-
     db.commit()
 
-    return {
-        "message": "Asset deleted successfully"
-    }
+    return {"message": "Asset deleted successfully"}
 
 
 # =====================================================
@@ -144,7 +137,6 @@ def list_notifications(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin)
 ):
-
     return (
         db.query(Notification)
         .filter(
@@ -181,12 +173,9 @@ def mark_notification_read(
         )
 
     notification.is_read = True
-
     db.commit()
 
-    return {
-        "message": "Notification marked as read"
-    }
+    return {"message": "Notification marked as read"}
 
 
 @router.patch("/notifications/read-all")
@@ -194,7 +183,6 @@ def mark_all_read(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin)
 ):
-
     (
         db.query(Notification)
         .filter(
@@ -206,9 +194,7 @@ def mark_all_read(
 
     db.commit()
 
-    return {
-        "message": "All notifications marked as read"
-    }
+    return {"message": "All notifications marked as read"}
 
 
 # =====================================================
@@ -261,7 +247,6 @@ def most_used_assets(
                 .get("mandatory", {})
                 .get("asset_name", "")
             )
-
         except Exception:
             pass
 
@@ -274,9 +259,7 @@ def most_used_assets(
             )
         )
 
-    return TopAssetsResponse(
-        top_assets=top_assets
-    )
+    return TopAssetsResponse(top_assets=top_assets)
 
 
 @router.get("/analytics/asset/{asset_id}")
@@ -318,9 +301,7 @@ def asset_usage(
         .filter(
             AssetUsage.asset_id == asset_id
         )
-        .group_by(
-            AssetUsage.action
-        )
+        .group_by(AssetUsage.action)
         .all()
     )
 

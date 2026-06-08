@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 
 import api from "../../api/axios";
+import { API_BASE } from "../../api/axios";
 
 import Layout from "../../components/common/layout";
 import AssetModal from "../../components/common/AssetModal";
@@ -164,7 +165,7 @@ const ReviewQueue = () => {
                   >
                     {asset.thumbnail_path || asset.preview_path ? (
                       <img
-                        src={`http://localhost:8000/assets/${asset.id}/preview`}
+                        src={`${API_BASE}/assets/${asset.id}/preview`}
                         alt={assetName}
                       />
                     ) : (

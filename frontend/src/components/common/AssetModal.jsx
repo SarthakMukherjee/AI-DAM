@@ -12,6 +12,7 @@ import {
   GitBranch,
   // Sparkles,
 } from "lucide-react";
+import { API_BASE } from "../../api/axios";
 
 // import { useNavigate } from "react-router-dom";
 
@@ -160,19 +161,19 @@ const AssetModal = ({ asset, onClose, onDelete, showDelete }) => {
           <div className="modal-preview">
             {asset.mime_type?.startsWith("image/") ? (
               <img
-                src={`http://localhost:8000/assets/${asset.id}/preview`}
+                src={`${API_BASE}/assets/${asset.id}/preview`}
                 alt={assetName}
                 className="modal-preview-img"
               />
             ) : asset.mime_type === "application/pdf" ? (
               <iframe
-                src={`http://localhost:8000/assets/${asset.id}/pdf-viewer`}
+                src={`${API_BASE}/assets/${asset.id}/pdf-viewer`}
                 className="modal-preview-pdf"
                 title={assetName}
               />
             ) : asset.mime_type?.startsWith("video/") ? (
               <video
-                src={`http://localhost:8000/assets/${asset.id}/download`}
+                src={`${API_BASE}/assets/${asset.id}/download`}
                 controls
                 className="modal-preview-video"
               />
@@ -361,7 +362,7 @@ const AssetModal = ({ asset, onClose, onDelete, showDelete }) => {
 
               {asset.mime_type === "application/pdf" && (
                 <a
-                  href={`http://localhost:8000/assets/${asset.id}/pdf-viewer`}
+                  href={`${API_BASE}/assets/${asset.id}/preview`}
                   target="_blank"
                   rel="noreferrer"
                   className="modal-btn modal-btn-secondary"

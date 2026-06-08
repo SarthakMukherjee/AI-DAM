@@ -1,11 +1,13 @@
 import axios from "axios";
 
+export const API_BASE =
+  import.meta.env.VITE_API_URL || "https://monojitve-dam.hf.space";
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "https://monojitve-dam.hf.space",
+  baseURL: API_BASE,
   headers: {
     "Content-Type": "application/json",
   },
-  // withCredentials removed - no longer using cookies
 });
 
 api.interceptors.request.use((config) => {
