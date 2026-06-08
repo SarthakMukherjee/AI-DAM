@@ -86,7 +86,7 @@ class AssetService:
         )
 
         # =====================================================
-        # STEP 6 — UPLOAD ORIGINAL TO CLOUDINARY
+        # STEP 6 — CONFIGURATION & RESOURCE MAPPING
         # =====================================================
 
         asset_id_temp = filename.split(".")[0]
@@ -100,43 +100,18 @@ class AssetService:
         else:
             resource_type = "raw"
 
-        print(f"[UPLOAD] Uploading to Cloudinary: {original_path}")
-
-        cloud_url = CloudService.upload(
-            file_path=original_path,
-            public_id=f"originals/{asset_id_temp}",
-            resource_type=resource_type,
-            folder="ai-dam"
-        )
-
-        print(f"[UPLOAD] Cloudinary result: {cloud_url}")
-
-        # Fail hard if Cloudinary upload failed — never store localhost paths
-        if not cloud_url:
-            self.storage_service.delete_local_file(original_path)
-            raise HTTPException(
-                status_code=500,
-                detail="File upload to cloud storage failed. Please try again."
-            )
-
-        storage_path = cloud_url
-
-        # Clean up local original after successful cloud upload
-        self.storage_service.delete_local_file(original_path)
-
         # =====================================================
-        # STEP 7 — PREVIEW GENERATION + CLOUD UPLOAD
+        # STEP 7 — PREVIEW GENERATION (before cloud upload)
+        # local file still exists here
         # =====================================================
 
         thumbnail_path = None
         preview_path = None
 
         if mime_type.startswith("image"):
-
             local_thumb = self.thumbnail_service.generate_image_thumbnail(
                 original_path, filename
             )
-
             if local_thumb:
                 cloud_thumb = CloudService.upload(
                     file_path=local_thumb,
@@ -144,15 +119,13 @@ class AssetService:
                     resource_type="image",
                     folder="ai-dam"
                 )
-                thumbnail_path = cloud_thumb  # None if failed, that's ok
+                thumbnail_path = cloud_thumb
                 self.storage_service.delete_local_file(local_thumb)
 
         elif mime_type == "application/pdf":
-
             local_preview = self.pdf_preview_service.generate_preview(
                 original_path, filename
             )
-
             if local_preview:
                 cloud_preview = CloudService.upload(
                     file_path=local_preview,
@@ -164,11 +137,9 @@ class AssetService:
                 self.storage_service.delete_local_file(local_preview)
 
         elif mime_type.startswith("video"):
-
             local_preview = self.video_preview_service.generate_preview(
                 original_path, filename
             )
-
             if local_preview:
                 cloud_preview = CloudService.upload(
                     file_path=local_preview,
@@ -180,7 +151,33 @@ class AssetService:
                 self.storage_service.delete_local_file(local_preview)
 
         # =====================================================
-        # STEP 8 — VERSIONING
+        # STEP 8 — UPLOAD ORIGINAL TO CLOUDINARY
+        # =====================================================
+        print(f"[UPLOAD] Uploading to Cloudinary: {original_path}")
+
+        cloud_url = CloudService.upload(
+            file_path=original_path,
+            public_id=f"originals/{asset_id_temp}",
+            resource_type=resource_type,
+            folder="ai-dam"
+        )
+
+        print(f"[UPLOAD] Cloudinary result: {cloud_url}")
+
+        if not cloud_url:
+            self.storage_service.delete_local_file(original_path)
+            raise HTTPException(
+                status_code=500,
+                detail="File upload to cloud storage failed. Please try again."
+            )
+
+        storage_path = cloud_url
+
+        # NOW safe to delete local original
+        self.storage_service.delete_local_file(original_path)
+
+        # =====================================================
+        # STEP 9 — VERSIONING
         # =====================================================
 
         version = 1
@@ -202,7 +199,7 @@ class AssetService:
                 root_asset_id = old_asset.root_asset_id or old_asset.id
 
         # =====================================================
-        # STEP 9 — INSERT DB RECORD
+        # STEP 10 — INSERT DB RECORD
         # =====================================================
 
         asset = Asset(
@@ -232,7 +229,7 @@ class AssetService:
         db.refresh(asset)
 
         # =====================================================
-        # STEP 10 — AI ENRICHMENT
+        # STEP 11 — AI ENRICHMENT
         # =====================================================
 
         try:
@@ -254,7 +251,7 @@ class AssetService:
             print(f"[AI ENRICHMENT] Failed: {e}")
 
         # =====================================================
-        # STEP 11 — SEMANTIC INDEXING
+        # STEP 12 — SEMANTIC INDEXING
         # =====================================================
 
         try:
@@ -269,7 +266,7 @@ class AssetService:
             print(f"[SEMANTIC INDEX FAILED] Asset ID: {asset.id} | Error: {e}")
 
         # =====================================================
-        # STEP 12 — RETURN ASSET
+        # STEP 13 — RETURN ASSET
         # =====================================================
 
         return asset
