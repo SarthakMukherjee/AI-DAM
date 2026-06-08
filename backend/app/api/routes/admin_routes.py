@@ -20,6 +20,8 @@ from app.schemas.user.schemas import (
     AssetUsageResponse
 )
 
+from app.services.storage.cloud_service import CloudService
+
 import os
 import shutil
 
@@ -87,8 +89,9 @@ def delete_asset(
     ).delete()
 
     # ==========================================
-    # DELETE FILES / FOLDERS
-    # skip cloud URLs — nothing to delete locally
+    # DELETE FILES
+    # cloud URLs → delete from Cloudinary
+    # local paths → delete from disk
     # ==========================================
 
     paths_to_delete = [
@@ -102,9 +105,36 @@ def delete_asset(
         if not path:
             continue
 
+        # cloud URL — delete from Cloudinary
         if path.startswith("http"):
+            try:
+                # extract public_id from Cloudinary URL
+                # e.g. https://res.cloudinary.com/xxx/image/upload/v123/ai-dam/originals/file.png
+                # public_id = ai-dam/originals/file
+                parts = path.split("/upload/")
+                if len(parts) == 2:
+                    public_id_with_version = parts[1]
+                    # strip version prefix (v1234567/)
+                    public_id_parts = public_id_with_version.split("/", 1)
+                    if (
+                        public_id_parts[0].startswith("v")
+                        and public_id_parts[0][1:].isdigit()
+                    ):
+                        public_id = public_id_parts[1]
+                    else:
+                        public_id = public_id_with_version
+                    # strip file extension
+                    public_id = public_id.rsplit(".", 1)[0]
+                    CloudService.delete(
+                        public_id=public_id,
+                        resource_type="image"
+                    )
+                    print(f"[CLOUDINARY] Deleted: {public_id}")
+            except Exception as e:
+                print(f"[CLOUDINARY] Failed to delete {path}: {e}")
             continue
 
+        # local file — delete from disk
         if os.path.exists(path):
             try:
                 if os.path.isfile(path):
