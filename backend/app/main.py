@@ -54,6 +54,7 @@ ALLOWED_ORIGINS = [
     "https://ai-dam-six.vercel.app",
     # "http://127.0.0.1:5173"
 ]
+ 
 
 app.add_middleware(
     CORSMiddleware,
