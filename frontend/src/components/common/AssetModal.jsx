@@ -43,17 +43,32 @@ const AssetModal = ({ asset, onClose, onDelete, showDelete }) => {
     <Folder size={22} className="modal-file-icon default" />
   );
 
+  // Cloudinary-aware preview URL
+  const previewUrl =
+    asset.thumbnail_url ||
+    asset.preview_url ||
+    asset.thumbnail_path ||
+    asset.preview_path ||
+    asset.storage_path;
+
   useEffect(() => {
     const handler = (e) => {
       if (e.key === "Escape") {
         onClose();
       }
     };
+
     document.addEventListener("keydown", handler);
+
     return () => {
       document.removeEventListener("keydown", handler);
     };
   }, [onClose]);
+
+  useEffect(() => {
+    console.log("AssetModal asset:", asset);
+    console.log("Preview URL:", previewUrl);
+  }, [asset, previewUrl]);
 
   const copyAssetId = async () => {
     try {
@@ -69,14 +84,18 @@ const AssetModal = ({ asset, onClose, onDelete, showDelete }) => {
       const res = await api.get(`/assets/${asset.id}/download`, {
         responseType: "blob",
       });
+
       const blob = new Blob([res.data]);
       const url = window.URL.createObjectURL(blob);
+
       const link = document.createElement("a");
       link.href = url;
       link.download = asset.original_filename;
+
       document.body.appendChild(link);
       link.click();
       link.remove();
+
       window.URL.revokeObjectURL(url);
     } catch (err) {
       console.error(err);
@@ -104,11 +123,14 @@ const AssetModal = ({ asset, onClose, onDelete, showDelete }) => {
         <div className="modal-header">
           <div className="modal-title-group">
             <span className="modal-icon">{icon}</span>
+
             <div>
               <h2 className="modal-title">{assetName}</h2>
+
               <span className="modal-filename">{asset.original_filename}</span>
             </div>
           </div>
+
           <button className="modal-close" onClick={onClose}>
             <X size={18} />
           </button>
@@ -119,19 +141,23 @@ const AssetModal = ({ asset, onClose, onDelete, showDelete }) => {
           <div className="modal-preview">
             {asset.mime_type?.startsWith("image/") ? (
               <img
-                src={asset.thumbnail_path || asset.storage_path}
+                src={previewUrl}
                 alt={assetName}
                 className="modal-preview-img"
+                loading="lazy"
+                onError={(e) => {
+                  console.error("Failed image URL:", e.target.src);
+                }}
               />
             ) : asset.mime_type === "application/pdf" ? (
               <iframe
-                src={asset.storage_path}
+                src={previewUrl}
                 className="modal-preview-pdf"
                 title={assetName}
               />
             ) : asset.mime_type?.startsWith("video/") ? (
               <video
-                src={asset.storage_path}
+                src={previewUrl}
                 controls
                 className="modal-preview-video"
               />
@@ -211,21 +237,22 @@ const AssetModal = ({ asset, onClose, onDelete, showDelete }) => {
               <span className="modal-detail-value">v{asset.version}</span>
             </div>
 
-            {/* ASSET ID */}
             <div className="modal-detail-group">
               <span className="modal-detail-label">Asset ID</span>
+
               <div className="modal-id-row">
                 <code className="modal-id-code">{asset.id}</code>
+
                 <button className="modal-copy-btn" onClick={copyAssetId}>
                   <Copy size={14} />
                 </button>
               </div>
             </div>
 
-            {/* PARENT ASSET */}
             {asset.parent_id && (
               <div className="modal-detail-group">
                 <span className="modal-detail-label">Parent Asset</span>
+
                 <div className="modal-version-row">
                   <GitBranch size={14} />
                   <code className="modal-id-code">{asset.parent_id}</code>
@@ -233,13 +260,14 @@ const AssetModal = ({ asset, onClose, onDelete, showDelete }) => {
               </div>
             )}
 
-            {/* VERSION STATUS */}
             <div className="modal-detail-group">
               <span className="modal-detail-label">Version Status</span>
+
               <div className="modal-version-badges">
                 <span className={"version-chip " + versionChip}>
                   {versionLabel}
                 </span>
+
                 {asset.parent_id && (
                   <span className="version-chip version-chip-versioned">
                     Versioned Asset
@@ -248,10 +276,10 @@ const AssetModal = ({ asset, onClose, onDelete, showDelete }) => {
               </div>
             </div>
 
-            {/* TAGS */}
             {tags.length > 0 && (
               <div className="modal-detail-group">
                 <span className="modal-detail-label">AI Tags</span>
+
                 <div className="modal-tags">
                   {tags.map((tag) => (
                     <span key={tag} className="asset-tag">
@@ -262,7 +290,6 @@ const AssetModal = ({ asset, onClose, onDelete, showDelete }) => {
               </div>
             )}
 
-            {/* ACTIONS */}
             <div className="modal-actions">
               <button
                 className="modal-btn modal-btn-primary"
@@ -274,7 +301,7 @@ const AssetModal = ({ asset, onClose, onDelete, showDelete }) => {
 
               {asset.mime_type === "application/pdf" && (
                 <a
-                  href={asset.storage_path}
+                  href={previewUrl}
                   target="_blank"
                   rel="noreferrer"
                   className="modal-btn modal-btn-secondary"
