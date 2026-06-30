@@ -34,6 +34,109 @@ class AutoTaggingService:
 
         self.client = Groq(api_key=GROQ_API_KEY)
 
+    # Written on a 30-06-26
+    def suggest_metadata(
+        self,
+        asset_type: str,
+        file_path: str,
+        filename: str
+    ) -> dict:
+
+        asset_type = asset_type.lower()
+        extracted_context = {}
+        detected_type = "document"
+
+        # 1. Extract context depending on file type
+        if asset_type in ["jpg", "jpeg", "png", "webp", "gif"]:
+            detected_type = "image"
+            caption = self.image_service.generate_caption(file_path)
+            detected_objects = self.image_service.detect_objects(file_path)
+            try:
+                extracted_text = OCRService.extract_text(file_path)
+            except Exception:
+                extracted_text = ""
+            extracted_context = {
+                "caption": caption,
+                "objects": detected_objects,
+                "ocr_text": extracted_text
+            }
+        elif asset_type == "pdf":
+            detected_type = "pdf"
+            extracted_text = self.pdf_service.extract_text(file_path)
+            doc_metadata = self.pdf_service.extract_metadata(file_path)
+            page_count = self.pdf_service.get_page_count(file_path)
+            extracted_context = {
+                "extracted_text": extracted_text[:3000],
+                "title": doc_metadata.get("title", ""),
+                "author": doc_metadata.get("author", ""),
+                "subject": doc_metadata.get("subject", ""),
+                "keywords": doc_metadata.get("keywords", ""),
+                "page_count": page_count
+            }
+        elif asset_type in ["mp4", "mov", "avi", "mkv", "webm"]:
+            detected_type = "video"
+            captions = self.video_service.generate_captions(file_path)
+            detected_objects = self.video_service.detect_objects(file_path)
+            combined_caption = ". ".join(captions) if captions else ""
+            extracted_context = {
+                "captions": captions,
+                "objects": detected_objects,
+                "combined_caption": combined_caption
+            }
+        else:
+            extracted_context = {
+                "filename": filename
+            }
+
+        prompt = f"""
+        You are an AI DAM METADATA ASSISTANT.
+        Your task is to analyze the extracted data of an asset and recommend values for its mandatory metadata fields.
+        
+        The mandatory metadata fields are:
+        1. asset_name: A user-friendly, descriptive title for the asset (e.g. "Marketing Campaign Banner" instead of "marketing_banner_v2.png"). Generate this based on the filename and the extracted visual/text content.
+        2. asset_type: Must be one of: "image", "video", "pdf", "document". Choose the most appropriate one.
+        3. description: A clear, concise description summarizing the content of the asset (2-3 sentences max).
+        4. created_by: Recommend a creator (e.g. from PDF metadata author field if present, or suggest a realistic placeholder/default value like "Admin" or "AI Ingest Service").
+        5. owner: Recommend an owner (e.g. from PDF metadata, or suggest a realistic placeholder/default value like "Admin" or "Marketing Team").
+        6. usage_rights: Recommend usage rights (e.g. "Standard License", "Internal Use Only", "All Rights Reserved", or based on extracted metadata if any).
+
+        You should STRICTLY follow the following rules:
+        - Return ONLY valid JSON
+        - No markdown
+        - No explanations
+        - Use the exact field keys: "asset_name", "asset_type", "description", "created_by", "owner", "usage_rights"
+
+        Required JSON format:
+        {{
+            "asset_name": "...",
+            "asset_type": "...",
+            "description": "...",
+            "created_by": "...",
+            "owner": "...",
+            "usage_rights": "..."
+        }}
+
+        Filename: {filename}
+        Asset Type: {detected_type}
+        Extracted Data:
+        {json.dumps(extracted_context, indent=2)}
+        """
+
+        response = self.client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.3,
+            response_format={"type": "json_object"}
+        )
+
+        llm_response = response.choices[0].message.content
+        parsed_response = json.loads(llm_response)
+        return parsed_response
+        
+        # END
+
     # -----------------------------------
     # SHARED: LLM TAG GENERATION
     # takes structured context dict,

@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   Check,
@@ -15,7 +15,7 @@ import Layout from "../../components/common/layout";
 
 import "../../styles/upload.css";
 
-const STEPS = ["Mandatory", "Business", "Content", "Upload"];
+const STEPS = ["Upload", "Mandatory", "Business", "Content"];
 
 const ASSET_TYPES = ["image", "video", "pdf", "document", "other"];
 
@@ -104,6 +104,8 @@ const UploadAsset = () => {
 
   const [loading, setLoading] = useState(false);
 
+  const [analyzing, setAnalyzing] = useState(false);
+
   const [success, setSuccess] = useState(false);
 
   const [error, setError] = useState("");
@@ -113,6 +115,8 @@ const UploadAsset = () => {
   const [availableAssets, setAvailableAssets] = useState([]);
 
   const [selectedParentAsset, setSelectedParentAsset] = useState(null);
+
+  const [aiSuggestedFields, setAiSuggestedFields] = useState([]);
 
   // FETCH ASSETS
 
@@ -133,14 +137,114 @@ const UploadAsset = () => {
   const handleChange = (e) => {
     setForm({
       ...form,
+
       [e.target.name]: e.target.value,
     });
+
+    setAiSuggestedFields((prev) =>
+      prev.filter((field) => field !== e.target.name)
+    );
 
     setError("");
   };
 
+  const handleFileChange = async (selectedFile) => {
+    if (!selectedFile) return;
+
+    setFile(selectedFile);
+
+    setAnalyzing(true);
+
+    setError("");
+
+    setAiSuggestedFields([]);
+
+    const formData = new FormData();
+
+    formData.append("file", selectedFile);
+
+    try {
+      const res = await api.post("/assets/analyze", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      const data = res.data;
+
+      if (data) {
+        setForm((prev) => ({
+          ...prev,
+
+          asset_name: data.asset_name || prev.asset_name,
+
+          asset_type: data.asset_type || prev.asset_type,
+
+          description: data.description || prev.description,
+
+          created_by: data.created_by || prev.created_by,
+
+          owner: data.owner || prev.owner,
+
+          usage_rights: data.usage_rights || prev.usage_rights,
+        }));
+
+        const suggestedKeys = [];
+
+        if (data.asset_name) suggestedKeys.push("asset_name");
+
+        if (data.asset_type) suggestedKeys.push("asset_type");
+
+        if (data.description) suggestedKeys.push("description");
+
+        if (data.created_by) suggestedKeys.push("created_by");
+
+        if (data.owner) suggestedKeys.push("owner");
+
+        if (data.usage_rights) suggestedKeys.push("usage_rights");
+
+        setAiSuggestedFields(suggestedKeys);
+
+        // Auto advance to next step to review suggestions
+
+        setTimeout(() => {
+          setStep(1);
+        }, 1200);
+      }
+    } catch (err) {
+      console.error(err);
+
+      const detail = err?.response?.data?.detail;
+
+      setError(
+        detail ||
+          "AI analysis failed. You can proceed with filling metadata manually."
+      );
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  const handleRemoveFile = (e) => {
+    e.stopPropagation();
+
+    setFile(null);
+
+    setAiSuggestedFields([]);
+
+    setForm(defaultForm);
+  };
+
   const handleNext = () => {
     if (step === 0) {
+      if (!file) {
+        setError("Please select a file to continue.");
+
+        return;
+      }
+    }
+
+    if (step === 1) {
       if (
         !form.asset_name ||
         !form.description ||
@@ -265,7 +369,7 @@ const UploadAsset = () => {
             <h1 className="admin-title">Upload Asset</h1>
 
             <p className="admin-subtitle">
-              Fill in asset details and upload your file
+              Ingest a new asset with automatic AI metadata suggestions
             </p>
           </div>
         </div>
@@ -306,30 +410,214 @@ const UploadAsset = () => {
           </div>
 
           <div className="wizard-body">
-            {/* STEP 0 */}
+            {/* STEP 0 - UPLOAD */}
 
             {step === 0 && (
               <div className="wizard-fields">
-                <h2 className="wizard-section-title">Mandatory Information</h2>
+                <h2 className="wizard-section-title">Upload File</h2>
+
+                {/* VERSION TOGGLE */}
+
+                <div className="version-toggle">
+                  <label className="version-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={isVersionUpdate}
+                      onChange={(e) => setIsVersionUpdate(e.target.checked)}
+                    />
+
+                    <span>Upload as new version</span>
+                  </label>
+                </div>
+
+                {/* SELECT ASSET */}
+
+                {isVersionUpdate && (
+                  <div className="version-assets">
+                    <div className="version-assets-header">
+                      <GitBranch size={16} />
+
+                      <span>Select Existing Asset</span>
+                    </div>
+
+                    <div className="version-assets-list">
+                      {availableAssets.map((a) => {
+                        const name =
+                          a.asset_metadata?.mandatory?.asset_name ||
+                          a.original_filename;
+
+                        return (
+                          <div
+                            key={a.id}
+                            className={`version-asset-item ${
+                              selectedParentAsset?.id === a.id ? "selected" : ""
+                            }`}
+                            onClick={() => {
+                              setSelectedParentAsset(a);
+                            }}
+                          >
+                            <div>
+                              <strong>{name}</strong>
+
+                              <p>Version {a.version}</p>
+                            </div>
+
+                            {a.is_latest && (
+                              <span className="badge badge-success">
+                                Latest
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* DROPZONE */}
+
+                <div
+                  className={`upload-dropzone ${
+                    file ? "upload-dropzone--filled" : ""
+                  } ${analyzing ? "upload-dropzone--analyzing" : ""}`}
+                  onClick={() =>
+                    !analyzing && document.getElementById("file-input").click()
+                  }
+                >
+                  {analyzing ? (
+                    <div className="scanner-container">
+                      <div className="scanner-glow"></div>
+
+                      <div className="btn-loader scanner-loader"></div>
+
+                      <p className="scanner-text">
+                        AI is analyzing your asset to recommend metadata...
+                      </p>
+                    </div>
+                  ) : file ? (
+                    <>
+                      <div className="upload-dropzone-icon upload-dropzone-icon--success">
+                        <Check size={38} />
+                      </div>
+
+                      <p className="upload-dropzone-name">{file.name}</p>
+
+                      <p className="upload-dropzone-size">
+                        {(file.size / 1024 / 1024).toFixed(2)} MB
+                      </p>
+
+                      <button
+                        className="upload-remove-file"
+                        onClick={handleRemoveFile}
+                      >
+                        Remove
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <div className="upload-dropzone-icon">
+                        <UploadCloud size={42} />
+                      </div>
+
+                      <p>Click to select a file</p>
+
+                      <p className="upload-dropzone-hint">
+                        Supported: JPEG, PNG, MP4, PDF
+                      </p>
+                    </>
+                  )}
+                </div>
+
+                <input
+                  id="file-input"
+                  type="file"
+                  accept="image/jpeg,image/png,video/mp4,application/pdf"
+                  style={{
+                    display: "none",
+                  }}
+                  onChange={(e) => handleFileChange(e.target.files[0])}
+                />
+
+                {/* SUMMARY */}
+
+                {file && (
+                  <div className="upload-summary">
+                    <h3>File Details</h3>
+
+                    <div className="summary-row">
+                      <span>Filename</span>
+
+                      <span>{file.name}</span>
+                    </div>
+
+                    <div className="summary-row">
+                      <span>Size</span>
+
+                      <span>{(file.size / 1024 / 1024).toFixed(2)} MB</span>
+                    </div>
+
+                    {selectedParentAsset && (
+                      <div className="summary-row summary-row-version">
+                        <span>Updating Version Of</span>
+
+                        <span>
+                          {selectedParentAsset.asset_metadata?.mandatory
+                            ?.asset_name ||
+                            selectedParentAsset.original_filename}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* STEP 1 - MANDATORY */}
+
+            {step === 1 && (
+              <div className="wizard-fields">
+                <h2 className="wizard-section-title">
+                  Mandatory Information (AI Recommended)
+                </h2>
 
                 <div className="form-group">
-                  <label>Asset Name *</label>
+                  <label>
+                    Asset Name *
+                    {aiSuggestedFields.includes("asset_name") && (
+                      <span className="ai-badge">AI Suggested</span>
+                    )}
+                  </label>
 
                   <input
                     name="asset_name"
                     value={form.asset_name}
                     onChange={handleChange}
                     placeholder="e.g. Marketing Banner"
+                    className={
+                      aiSuggestedFields.includes("asset_name")
+                        ? "ai-recommended-input"
+                        : ""
+                    }
                   />
                 </div>
 
                 <div className="form-group">
-                  <label>Asset Type *</label>
+                  <label>
+                    Asset Type *
+                    {aiSuggestedFields.includes("asset_type") && (
+                      <span className="ai-badge">AI Suggested</span>
+                    )}
+                  </label>
 
                   <select
                     name="asset_type"
                     value={form.asset_type}
                     onChange={handleChange}
+                    className={
+                      aiSuggestedFields.includes("asset_type")
+                        ? "ai-recommended-input"
+                        : ""
+                    }
                   >
                     {ASSET_TYPES.map((t) => (
                       <option key={t} value={t}>
@@ -340,53 +628,93 @@ const UploadAsset = () => {
                 </div>
 
                 <div className="form-group">
-                  <label>Description *</label>
+                  <label>
+                    Description *
+                    {aiSuggestedFields.includes("description") && (
+                      <span className="ai-badge">AI Suggested</span>
+                    )}
+                  </label>
 
                   <textarea
                     name="description"
                     value={form.description}
                     onChange={handleChange}
                     rows={3}
+                    className={
+                      aiSuggestedFields.includes("description")
+                        ? "ai-recommended-input"
+                        : ""
+                    }
                   />
                 </div>
 
                 <div className="upload-row">
                   <div className="form-group">
-                    <label>Created By *</label>
+                    <label>
+                      Created By *
+                      {aiSuggestedFields.includes("created_by") && (
+                        <span className="ai-badge">AI Suggested</span>
+                      )}
+                    </label>
 
                     <input
                       name="created_by"
                       value={form.created_by}
                       onChange={handleChange}
+                      className={
+                        aiSuggestedFields.includes("created_by")
+                          ? "ai-recommended-input"
+                          : ""
+                      }
                     />
                   </div>
 
                   <div className="form-group">
-                    <label>Owner *</label>
+                    <label>
+                      Owner *
+                      {aiSuggestedFields.includes("owner") && (
+                        <span className="ai-badge">AI Suggested</span>
+                      )}
+                    </label>
 
                     <input
                       name="owner"
                       value={form.owner}
                       onChange={handleChange}
+                      className={
+                        aiSuggestedFields.includes("owner")
+                          ? "ai-recommended-input"
+                          : ""
+                      }
                     />
                   </div>
                 </div>
 
                 <div className="form-group">
-                  <label>Usage Rights *</label>
+                  <label>
+                    Usage Rights *
+                    {aiSuggestedFields.includes("usage_rights") && (
+                      <span className="ai-badge">AI Suggested</span>
+                    )}
+                  </label>
 
                   <input
                     name="usage_rights"
                     value={form.usage_rights}
                     onChange={handleChange}
+                    className={
+                      aiSuggestedFields.includes("usage_rights")
+                        ? "ai-recommended-input"
+                        : ""
+                    }
                   />
                 </div>
               </div>
             )}
 
-            {/* STEP 1 */}
+            {/* STEP 2 - BUSINESS */}
 
-            {step === 1 && (
+            {step === 2 && (
               <div className="wizard-fields">
                 <h2 className="wizard-section-title">Business Metadata</h2>
 
@@ -464,9 +792,9 @@ const UploadAsset = () => {
               </div>
             )}
 
-            {/* STEP 2 */}
+            {/* STEP 3 - CONTENT */}
 
-            {step === 2 && (
+            {step === 3 && (
               <div className="wizard-fields">
                 <h2 className="wizard-section-title">Content Metadata</h2>
 
@@ -501,133 +829,17 @@ const UploadAsset = () => {
                     ))}
                   </select>
                 </div>
-              </div>
-            )}
-
-            {/* STEP 3 */}
-
-            {step === 3 && (
-              <div className="wizard-fields">
-                <h2 className="wizard-section-title">Upload File</h2>
-
-                {/* VERSION TOGGLE */}
-
-                <div className="version-toggle">
-                  <label className="version-checkbox">
-                    <input
-                      type="checkbox"
-                      checked={isVersionUpdate}
-                      onChange={(e) => setIsVersionUpdate(e.target.checked)}
-                    />
-
-                    <span>Upload as new version</span>
-                  </label>
-                </div>
-
-                {/* SELECT ASSET */}
-
-                {isVersionUpdate && (
-                  <div className="version-assets">
-                    <div className="version-assets-header">
-                      <GitBranch size={16} />
-
-                      <span>Select Existing Asset</span>
-                    </div>
-
-                    <div className="version-assets-list">
-                      {availableAssets.map((a) => {
-                        const name =
-                          a.asset_metadata?.mandatory?.asset_name ||
-                          a.original_filename;
-
-                        return (
-                          <div
-                            key={a.id}
-                            className={`version-asset-item ${
-                              selectedParentAsset?.id === a.id ? "selected" : ""
-                            }`}
-                            onClick={() => {
-                              setSelectedParentAsset(a);
-                            }}
-                          >
-                            <div>
-                              <strong>{name}</strong>
-
-                              <p>Version {a.version}</p>
-                            </div>
-
-                            {a.is_latest && (
-                              <span className="badge badge-success">
-                                Latest
-                              </span>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* DROPZONE */}
-
-                <div
-                  className={`upload-dropzone ${
-                    file ? "upload-dropzone--filled" : ""
-                  }`}
-                  onClick={() => document.getElementById("file-input").click()}
-                >
-                  {file ? (
-                    <>
-                      <div className="upload-dropzone-icon upload-dropzone-icon--success">
-                        <Check size={38} />
-                      </div>
-
-                      <p className="upload-dropzone-name">{file.name}</p>
-
-                      <p className="upload-dropzone-size">
-                        {(file.size / 1024 / 1024).toFixed(2)} MB
-                      </p>
-
-                      <button
-                        className="upload-remove-file"
-                        onClick={(e) => {
-                          e.stopPropagation();
-
-                          setFile(null);
-                        }}
-                      >
-                        Remove
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <div className="upload-dropzone-icon">
-                        <UploadCloud size={42} />
-                      </div>
-
-                      <p>Click to select a file</p>
-
-                      <p className="upload-dropzone-hint">
-                        Supported: JPEG, PNG, MP4, PDF
-                      </p>
-                    </>
-                  )}
-                </div>
-
-                <input
-                  id="file-input"
-                  type="file"
-                  accept="image/jpeg,image/png,video/mp4,application/pdf"
-                  style={{
-                    display: "none",
-                  }}
-                  onChange={(e) => setFile(e.target.files[0])}
-                />
 
                 {/* SUMMARY */}
 
                 <div className="upload-summary">
-                  <h3>Summary</h3>
+                  <h3>Asset Summary</h3>
+
+                  <div className="summary-row">
+                    <span>Filename</span>
+
+                    <span>{file?.name}</span>
+                  </div>
 
                   <div className="summary-row">
                     <span>Asset Name</span>
@@ -659,7 +871,11 @@ const UploadAsset = () => {
 
             <div className="wizard-nav">
               {step > 0 && (
-                <button className="wizard-btn-back" onClick={handleBack}>
+                <button
+                  className="wizard-btn-back"
+                  onClick={handleBack}
+                  disabled={loading}
+                >
                   <ArrowLeft size={16} />
                   Back
                 </button>

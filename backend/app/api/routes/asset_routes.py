@@ -28,6 +28,8 @@ from app.models.asset.asset_model import Asset
 from app.models.analytics.asset_usage_model import AssetUsage
 from app.models.user.user_model import User
 from app.schemas.metadata.metadata_schema import AssetMetadataSchema
+from app.services.storage.storage_service import StorageService
+from app.ai.tagging.auto_tagging_service import AutoTaggingService
 
 
 limiter = Limiter(key_func=get_remote_address)
@@ -103,6 +105,43 @@ async def upload_asset(
 
     return asset
 
+# Written on 30-06-26
+# -----------------------------------
+# ANALYZE — admin only
+# -----------------------------------
+
+@router.post("/analyze")
+@limiter.limit("10/minute")
+async def analyze_asset(
+    request: Request,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin)
+):
+    temp_path = None
+    storage_service = StorageService()
+    try:
+        # Save file to temp location
+        filename, temp_path, _ = await storage_service.save_to_temp(file)
+
+        # Call suggestion logic in AutoTaggingService
+        auto_tagger = AutoTaggingService()
+        file_extension = filename.split(".")[-1].lower()
+        suggestions = auto_tagger.suggest_metadata(
+            asset_type=file_extension,
+            file_path=temp_path,
+            filename=file.filename
+        )
+
+        # Clean up temp file
+        storage_service.delete_temp_file(temp_path)
+        return suggestions
+
+    except Exception as excep_errors:
+        if temp_path:
+            storage_service.delete_temp_file(temp_path)
+        raise HTTPException(status_code=500, detail=str(excep_errors))
+# END
 
 # -----------------------------------
 # LIST ASSETS
