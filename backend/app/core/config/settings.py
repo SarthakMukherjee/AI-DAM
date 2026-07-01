@@ -53,6 +53,13 @@ class Settings(BaseSettings):
     # -----------------------------------
 
     TESSERACT_CMD: str | None = None
+    
+    # -----------------------------------
+    # admin
+    # -----------------------------------
+    seed_super_admin_email: str
+    seed_super_admin_name: str
+    seed_super_admin_password: str
 
     class Config:
         env_file = ".env"
