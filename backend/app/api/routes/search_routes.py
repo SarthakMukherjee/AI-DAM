@@ -48,6 +48,8 @@ async def semantic_search(
             query=body.query,
             limit=body.limit,
             approved_only=body.approved_only,
+            filters=body.filters.model_dump(exclude_none=True) if body.filters else None,
+            search_field=body.search_field,
         )
 
     except Exception as e:
@@ -84,23 +86,14 @@ async def hybrid_search(
     body: HybridSearchRequest,
     db: Session = Depends(get_db),
 ):
-    """
-    FLOW:
-    User Query
-        ↓              ↓
-    Keyword Search   Semantic Search
-    (PostgreSQL)     (ChromaDB + PostgreSQL)
-        ↓              ↓
-        Merge + Re-rank by hybrid_score
-        ↓
-    Frontend Ready Results
-    """
     try:
         raw_results = HybridSearchService.search(
             db=db,
             query=body.query,
             limit=body.limit,
             approved_only=body.approved_only,
+            filters=body.filters.model_dump(exclude_none=True) if body.filters else None,
+            search_field=body.search_field,
         )
 
     except Exception as e:

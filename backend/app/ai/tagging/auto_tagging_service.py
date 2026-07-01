@@ -34,6 +34,50 @@ class AutoTaggingService:
 
         self.client = Groq(api_key=GROQ_API_KEY)
 
+    # -----------------------------------
+    # AI SUMMARY GENERATION
+    # Produces a clean 1-2 sentence summary
+    # from any structured context dict
+    # -----------------------------------
+
+    def generate_ai_summary(self, structured_context: dict) -> str:
+        """
+        Generate a concise 1-2 sentence plain-text summary of the asset
+        using the Groq LLM.
+
+        Args:
+            structured_context: Dict with extracted data (caption, objects,
+                                text, etc.) — same format used for tagging.
+
+        Returns:
+            A clean 1-2 sentence summary string, or empty string on failure.
+        """
+        prompt = f"""
+        You are an AI digital asset management assistant.
+        Based on the following extracted data from an asset, write a concise,
+        factual 1-2 sentence summary suitable for a DAM system description.
+
+        Rules:
+        - Return ONLY the summary text, no JSON, no markdown.
+        - Maximum 2 sentences.
+        - Be specific about content, NOT generic.
+
+        Extracted Data:
+        {json.dumps(structured_context, indent=2)}
+        """
+
+        try:
+            response = self.client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.2,
+                max_tokens=120,
+            )
+            return response.choices[0].message.content.strip()
+        except Exception as e:
+            print(f"[AI SUMMARY] Failed: {e}")
+            return ""
+
     # Written on a 30-06-26
     def suggest_metadata(
         self,
@@ -234,13 +278,16 @@ class AutoTaggingService:
             structured_context
         )
 
+        ai_summary = self.generate_ai_summary(structured_context)
+
         return {
             "ai_tags": cleaned_tags,
             "image_caption": caption,
             "detected_objects": detected_objects,
             "extracted_text": extracted_text,
             "searchable_tags": cleaned_tags,
-            "enrichment_status": "completed"
+            "enrichment_status": "completed",
+            "ai_summary": ai_summary,
         }
 
     # -----------------------------------
@@ -276,13 +323,16 @@ class AutoTaggingService:
             structured_context
         )
 
+        ai_summary = self.generate_ai_summary(structured_context)
+
         return {
             "ai_tags": cleaned_tags,
             "image_caption": combined_caption,
             "detected_objects": detected_objects,
             "extracted_text": "",
             "searchable_tags": cleaned_tags,
-            "enrichment_status": "completed"
+            "enrichment_status": "completed",
+            "ai_summary": ai_summary,
         }
 
     # -----------------------------------
@@ -324,11 +374,14 @@ class AutoTaggingService:
             structured_context
         )
 
+        ai_summary = self.generate_ai_summary(structured_context)
+
         return {
             "ai_tags": cleaned_tags,
             "image_caption": "",
             "detected_objects": [],
             "extracted_text": extracted_text,
             "searchable_tags": cleaned_tags,
-            "enrichment_status": "completed"
+            "enrichment_status": "completed",
+            "ai_summary": ai_summary,
         }

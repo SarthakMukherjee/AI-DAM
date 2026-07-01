@@ -30,6 +30,12 @@ from app.models.user.user_model import User
 from app.schemas.metadata.metadata_schema import AssetMetadataSchema
 from app.services.storage.storage_service import StorageService
 from app.ai.tagging.auto_tagging_service import AutoTaggingService
+from app.utils.image_hash import (
+    hamming_distance,
+    similarity_score,
+    NEAR_DUPLICATE_THRESHOLD_DISTANCE,
+    VISUAL_SIMILARITY_MIN_SCORE,
+)
 
 
 limiter = Limiter(key_func=get_remote_address)
@@ -80,8 +86,9 @@ async def upload_asset(
     file: UploadFile = File(...),
     metadata: str = Form("{}"),
     parent_id: str = Form(None),
+    changelog: str = Form(None),
     db: Session = Depends(get_db),
-    _: User = Depends(require_admin)
+    current_user: User = Depends(require_admin)
 ):
     try:
         sanitized = sanitize_json_string(metadata)
@@ -100,7 +107,9 @@ async def upload_asset(
         db=db,
         metadata=validated_metadata.model_dump(),
         status="draft",
-        parent_id=parent_id
+        parent_id=parent_id,
+        changelog=changelog,
+        uploaded_by=current_user.email if hasattr(current_user, "email") else str(current_user.id),
     )
 
     return asset
@@ -312,3 +321,243 @@ def pdf_page_image(
         raise HTTPException(status_code=404, detail=f"Page {page_num} not found")
 
     return FileResponse(path=page_path, media_type="image/png")
+
+# -----------------------------------
+# VERSION HISTORY
+# GET /assets/{asset_id}/versions
+# Returns full version tree for an asset
+# -----------------------------------
+
+@router.get("/{asset_id}/versions")
+def asset_version_history(
+    asset_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Returns all versions belonging to the same root asset, ordered by version number.
+    """
+    target = db.query(Asset).filter(Asset.id == asset_id).first()
+    if not target:
+        raise HTTPException(status_code=404, detail="Asset not found")
+
+    root_id = target.root_asset_id or target.id
+
+    versions = (
+        db.query(Asset)
+        .filter(Asset.root_asset_id == root_id)
+        .order_by(Asset.version.asc())
+        .all()
+    )
+
+    result = []
+    for v in versions:
+        asset_name = v.original_filename
+        try:
+            asset_name = (
+                v.asset_metadata
+                .get("mandatory", {})
+                .get("asset_name", v.original_filename)
+            )
+        except Exception:
+            pass
+
+        result.append({
+            "id":                v.id,
+            "version":           v.version,
+            "is_latest":         v.is_latest,
+            "status":            v.status,
+            "original_filename": v.original_filename,
+            "asset_name":        asset_name,
+            "storage_path":      v.storage_path,
+            "thumbnail_path":    v.thumbnail_path,
+            "mime_type":         v.mime_type,
+            "changelog":         v.changelog,
+            "updated_by":        v.updated_by,
+            "created_at":        v.created_at.isoformat() if v.created_at else None,
+            "completeness_score": v.completeness_score or 0,
+        })
+
+    return {"asset_id": asset_id, "root_asset_id": root_id, "versions": result}
+
+
+# -----------------------------------
+# VISUAL SIMILARITY SEARCH
+# GET /assets/{asset_id}/similar
+# Returns visually similar images via perceptual hash
+# -----------------------------------
+
+@router.get("/{asset_id}/similar")
+def find_similar_assets(
+    asset_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Find visually similar image assets using dHash perceptual hash comparison.
+    Only compares image assets. Returns assets with similarity >= VISUAL_SIMILARITY_MIN_SCORE.
+    """
+    target = db.query(Asset).filter(Asset.id == asset_id).first()
+    if not target:
+        raise HTTPException(status_code=404, detail="Asset not found")
+
+    if not target.perceptual_hash:
+        raise HTTPException(
+            status_code=400,
+            detail="This asset does not have a perceptual hash (non-image or pre-dates this feature)."
+        )
+
+    candidates = (
+        db.query(Asset)
+        .filter(
+            Asset.id != asset_id,
+            Asset.perceptual_hash != None,
+            Asset.mime_type.ilike("image/%"),
+        )
+        .all()
+    )
+
+    similar = []
+    for candidate in candidates:
+        sim = similarity_score(target.perceptual_hash, candidate.perceptual_hash)
+        if sim >= VISUAL_SIMILARITY_MIN_SCORE:
+            asset_name = candidate.original_filename
+            try:
+                asset_name = (
+                    candidate.asset_metadata
+                    .get("mandatory", {})
+                    .get("asset_name", candidate.original_filename)
+                )
+            except Exception:
+                pass
+
+            similar.append({
+                "asset_id":          str(candidate.id),
+                "similarity_score":  sim,
+                "hamming_distance":  hamming_distance(target.perceptual_hash, candidate.perceptual_hash),
+                "original_filename": candidate.original_filename,
+                "asset_name":        asset_name,
+                "storage_path":      candidate.storage_path,
+                "thumbnail_path":    candidate.thumbnail_path,
+                "status":            candidate.status,
+                "version":           candidate.version,
+                "is_latest":         candidate.is_latest,
+            })
+
+    similar.sort(key=lambda x: x["similarity_score"], reverse=True)
+
+    return {
+        "asset_id":       asset_id,
+        "total_similar":  len(similar),
+        "similar_assets": similar,
+    }
+
+
+# -----------------------------------
+# RETIRE ASSET
+# PATCH /assets/{asset_id}/retire
+# Admin only
+# -----------------------------------
+
+@router.patch("/{asset_id}/retire")
+def retire_asset(
+    asset_id: str,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    """
+    Retire an asset: sets status = 'retired' and is_latest = False.
+    A retired asset is hidden from default search but stays in DB for audit.
+    """
+    asset = db.query(Asset).filter(Asset.id == asset_id).first()
+    if not asset:
+        raise HTTPException(status_code=404, detail="Asset not found")
+
+    if asset.status == "retired":
+        raise HTTPException(status_code=400, detail="Asset is already retired")
+
+    asset.status = "retired"
+    asset.is_latest = False
+    db.commit()
+
+    return {
+        "message":  f"Asset {asset_id} has been retired",
+        "asset_id": asset_id,
+        "status":   asset.status,
+    }
+
+
+# -----------------------------------
+# DUPLICATE CANDIDATES
+# GET /assets/duplicate-candidates
+# Admin only
+# -----------------------------------
+
+@router.get("/duplicate-candidates")
+def duplicate_candidates(
+    threshold: int = NEAR_DUPLICATE_THRESHOLD_DISTANCE,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    """
+    Scan all image assets and return groups of near-duplicate candidates.
+    Uses perceptual hash Hamming distance <= threshold (default 10).
+    """
+    image_assets = (
+        db.query(Asset)
+        .filter(
+            Asset.perceptual_hash != None,
+            Asset.mime_type.ilike("image/%"),
+        )
+        .all()
+    )
+
+    visited = set()
+    groups = []
+
+    for i, a in enumerate(image_assets):
+        if a.id in visited:
+            continue
+        group = [a]
+        for j in range(i + 1, len(image_assets)):
+            b = image_assets[j]
+            if b.id in visited:
+                continue
+            dist = hamming_distance(a.perceptual_hash, b.perceptual_hash)
+            if dist <= threshold:
+                group.append(b)
+                visited.add(b.id)
+
+        if len(group) > 1:
+            visited.add(a.id)
+
+            def _summary(asset):
+                asset_name = asset.original_filename
+                try:
+                    asset_name = (
+                        asset.asset_metadata
+                        .get("mandatory", {})
+                        .get("asset_name", asset.original_filename)
+                    )
+                except Exception:
+                    pass
+                return {
+                    "asset_id":          str(asset.id),
+                    "asset_name":        asset_name,
+                    "original_filename": asset.original_filename,
+                    "thumbnail_path":    asset.thumbnail_path,
+                    "status":            asset.status,
+                    "version":           asset.version,
+                    "perceptual_hash":   asset.perceptual_hash,
+                }
+
+            groups.append({
+                "group_size": len(group),
+                "assets":     [_summary(x) for x in group],
+            })
+
+    return {
+        "total_groups":      len(groups),
+        "hamming_threshold": threshold,
+        "duplicate_groups":  groups,
+    }

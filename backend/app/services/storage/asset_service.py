@@ -18,6 +18,8 @@ from app.utils.file_utils import (
     detect_mime_type,
     validate_mime_type
 )
+from app.utils.image_hash import compute_dhash
+from app.utils.completeness import calculate_completeness
 
 
 class AssetService:
@@ -35,7 +37,9 @@ class AssetService:
         db: Session,
         metadata: dict = None,
         status: str = "draft",
-        parent_id: str = None
+        parent_id: str = None,
+        changelog: str = None,
+        uploaded_by: str = None,
     ):
 
         # =====================================================
@@ -53,7 +57,7 @@ class AssetService:
         file_hash = calculate_file_hash(content)
 
         # =====================================================
-        # STEP 3 — DUPLICATE CHECK
+        # STEP 3 — DUPLICATE CHECK (exact hash)
         # =====================================================
 
         existing_asset = (
@@ -77,7 +81,17 @@ class AssetService:
         validate_mime_type(mime_type)
 
         # =====================================================
-        # STEP 5 — MOVE TO LOCAL ORIGINALS
+        # STEP 5 — PERCEPTUAL HASH (images only, before move)
+        # =====================================================
+
+        perceptual_hash = None
+        if mime_type.startswith("image/"):
+            perceptual_hash = compute_dhash(temp_path)
+            if perceptual_hash:
+                print(f"[PERCEPTUAL HASH] {perceptual_hash} for {filename}")
+
+        # =====================================================
+        # STEP 6 — MOVE TO LOCAL ORIGINALS
         # =====================================================
 
         original_path = self.storage_service.move_to_original(
@@ -86,7 +100,7 @@ class AssetService:
         )
 
         # =====================================================
-        # STEP 6 — CONFIGURATION & RESOURCE MAPPING
+        # STEP 7 — CONFIGURATION & RESOURCE MAPPING
         # =====================================================
 
         asset_id_temp = filename.split(".")[0]
@@ -101,7 +115,7 @@ class AssetService:
             resource_type = "raw"
 
         # =====================================================
-        # STEP 7 — PREVIEW GENERATION (before cloud upload)
+        # STEP 8 — PREVIEW GENERATION (before cloud upload)
         # local file still exists here
         # =====================================================
 
@@ -151,7 +165,7 @@ class AssetService:
                 self.storage_service.delete_local_file(local_preview)
 
         # =====================================================
-        # STEP 8 — UPLOAD ORIGINAL TO CLOUDINARY
+        # STEP 9 — UPLOAD ORIGINAL TO CLOUDINARY
         # =====================================================
         print(f"[UPLOAD] Uploading to Cloudinary: {original_path}")
 
@@ -177,7 +191,7 @@ class AssetService:
         self.storage_service.delete_local_file(original_path)
 
         # =====================================================
-        # STEP 9 — VERSIONING
+        # STEP 10 — VERSIONING
         # =====================================================
 
         version = 1
@@ -199,7 +213,13 @@ class AssetService:
                 root_asset_id = old_asset.root_asset_id or old_asset.id
 
         # =====================================================
-        # STEP 10 — INSERT DB RECORD
+        # STEP 11 — METADATA COMPLETENESS SCORE
+        # =====================================================
+
+        completeness_score = calculate_completeness(metadata or {})
+
+        # =====================================================
+        # STEP 12 — INSERT DB RECORD
         # =====================================================
 
         asset = Asset(
@@ -216,7 +236,11 @@ class AssetService:
             version=version,
             parent_id=parent_id,
             root_asset_id=root_asset_id,
-            is_latest=True
+            is_latest=True,
+            perceptual_hash=perceptual_hash,
+            completeness_score=completeness_score,
+            changelog=changelog,
+            updated_by=uploaded_by,
         )
 
         db.add(asset)
@@ -229,7 +253,7 @@ class AssetService:
         db.refresh(asset)
 
         # =====================================================
-        # STEP 11 — AI ENRICHMENT
+        # STEP 13 — AI ENRICHMENT
         # =====================================================
 
         try:
@@ -244,6 +268,15 @@ class AssetService:
             existing_metadata["ai_enrichment"] = ai_metadata
             asset.asset_metadata = existing_metadata
 
+            # ─────────────────────────────────────────────
+            # Populate queryable AI columns from enrichment
+            # ─────────────────────────────────────────────
+            asset.ai_tags          = ai_metadata.get("ai_tags") or []
+            asset.detected_objects = ai_metadata.get("detected_objects") or []
+            asset.extracted_text   = ai_metadata.get("extracted_text") or None
+            asset.image_caption    = ai_metadata.get("image_caption") or None
+            asset.ai_summary       = ai_metadata.get("ai_summary") or None
+
             db.commit()
             db.refresh(asset)
 
@@ -251,7 +284,7 @@ class AssetService:
             print(f"[AI ENRICHMENT] Failed: {e}")
 
         # =====================================================
-        # STEP 12 — SEMANTIC INDEXING
+        # STEP 14 — SEMANTIC INDEXING
         # =====================================================
 
         try:
@@ -266,7 +299,7 @@ class AssetService:
             print(f"[SEMANTIC INDEX FAILED] Asset ID: {asset.id} | Error: {e}")
 
         # =====================================================
-        # STEP 13 — RETURN ASSET
+        # STEP 15 — RETURN ASSET
         # =====================================================
 
         return asset

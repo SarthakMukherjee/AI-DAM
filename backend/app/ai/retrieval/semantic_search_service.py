@@ -66,7 +66,8 @@ def _fetch_assets_by_ids(
 def _format_results(
     raw: dict,
     db: Session,
-    limit: int
+    limit: int,
+    approved_only: bool = True,
 ):
 
     ids = raw.get("ids", [[]])[0]
@@ -89,22 +90,11 @@ def _format_results(
         if not asset:
             continue
 
-        # ---------------------------------------------
-        # ONLY APPROVED ASSETS
-        # ---------------------------------------------
-
-        if asset.status != "approved":
+        # Only filter by approved status at the Python level
+        if approved_only and asset.status != "approved":
             continue
 
-        # ---------------------------------------------
-        # DISTANCE → SCORE
-        # ---------------------------------------------
-
         score = _distance_to_score(distance)
-
-        # ---------------------------------------------
-        # THRESHOLD FILTERING
-        # ---------------------------------------------
 
         if score < MINIMUM_SIMILARITY_SCORE:
             continue
@@ -134,7 +124,16 @@ def _format_results(
                 asset.status,
 
             "asset_metadata":
-                asset.asset_metadata or {}
+                asset.asset_metadata or {},
+
+            "completeness_score":
+                asset.completeness_score or 0,
+
+            "ai_summary":
+                asset.ai_summary,
+
+            "perceptual_hash":
+                asset.perceptual_hash,
         })
 
     formatted_results.sort(
@@ -203,31 +202,32 @@ class SemanticSearchService:
         db: Session,
         limit: int = 10,
         approved_only: bool = True,
-        filters: dict | None = None
+        filters: dict | None = None,
+        search_field: str | None = None,
     ):
 
-        # ---------------------------------------------
         # QUERY → EMBEDDING
-        # ---------------------------------------------
-
         query_embedding = generate_embedding(
             query
         )
 
-        # ---------------------------------------------
-        # VECTOR SEARCH
-        # ---------------------------------------------
-
+        # Build Chroma where-clause from facets
         where = None
 
         if filters:
+            chroma_filters = []
 
-            where = {
-                "$and": [
-                    {k: v}
-                    for k, v in filters.items()
-                ]
-            }
+            if filters.get("domain"):
+                chroma_filters.append({"domain": {"$eq": filters["domain"]}})
+
+            if filters.get("asset_type"):
+                chroma_filters.append({"asset_type": {"$eq": filters["asset_type"]}})
+
+            if chroma_filters:
+                if len(chroma_filters) == 1:
+                    where = chroma_filters[0]
+                else:
+                    where = {"$and": chroma_filters}
 
         raw = (
             VectorQueryService.semantic_search(
@@ -237,12 +237,9 @@ class SemanticSearchService:
             )
         )
 
-        # ---------------------------------------------
-        # FORMAT RESULTS
-        # ---------------------------------------------
-
         return _format_results(
             raw=raw,
             db=db,
-            limit=limit
+            limit=limit,
+            approved_only=approved_only,
         )

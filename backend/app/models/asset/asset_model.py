@@ -1,12 +1,13 @@
 import uuid
 
 from sqlalchemy import (
-    Column, 
-    String, 
-    Integer, 
-    DateTime, 
-    Boolean, 
-    ForeignKey
+    Column,
+    String,
+    Integer,
+    DateTime,
+    Boolean,
+    Text,
+    ForeignKey,
 )
 
 from sqlalchemy.dialects.postgresql import JSONB
@@ -27,7 +28,7 @@ class Asset(Base):
     mime_type = Column(String)
     file_size = Column(Integer)
 
-    file_hash = Column(String, nullable=False, unique=False) # made changes on 18-05-26
+    file_hash = Column(String, nullable=False, unique=False)
 
     # STORAGE
     storage_path = Column(String)
@@ -35,7 +36,7 @@ class Asset(Base):
     thumbnail_path = Column(String, nullable=True)
     preview_path = Column(String, nullable=True)
 
-    # BUSINESS METADATA
+    # BUSINESS METADATA (nested JSONB — legacy / upload payload)
     asset_metadata = Column(JSONB, nullable=True)
 
     # WORKFLOW STATUS
@@ -44,11 +45,48 @@ class Asset(Base):
     # VERSIONING
     version = Column(Integer, default=1)
     parent_id = Column(String, ForeignKey("assets.id"), nullable=True)
-    root_asset_id = Column(String, nullable=True) # new column added on 15-05-26
+    root_asset_id = Column(String, nullable=True)
     is_latest = Column(Boolean, default=True)
 
     # ARCHIVAL
     is_archived = Column(Boolean, default=False)
 
-    #TIMESTAMPS
+    # -------------------------------------------------------
+    # AI RETRIEVAL — queryable individual columns
+    # (duplicated out of asset_metadata.ai_enrichment for
+    #  direct SQL filtering, indexing, and completeness checks)
+    # -------------------------------------------------------
+
+    # Near-duplicate detection: 16-char hex dHash fingerprint (images only)
+    perceptual_hash = Column(String(16), nullable=True)
+
+    # Clean LLM-generated 1-2 sentence summary of the asset
+    ai_summary = Column(Text, nullable=True)
+
+    # Metadata completeness score 0-100
+    completeness_score = Column(Integer, default=0)
+
+    # Queryable AI enrichment fields
+    ai_tags = Column(JSONB, nullable=True)           # list[str]
+    detected_objects = Column(JSONB, nullable=True)  # list[str]
+    extracted_text = Column(Text, nullable=True)
+    image_caption = Column(Text, nullable=True)
+
+    # -------------------------------------------------------
+    # VERSION CONTROL — changelog
+    # -------------------------------------------------------
+
+    # Human-readable description of what changed in this version
+    changelog = Column(Text, nullable=True)
+
+    # Username / user_id of whoever uploaded this version
+    updated_by = Column(String, nullable=True)
+
+    # TIMESTAMPS
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=True,
+    )

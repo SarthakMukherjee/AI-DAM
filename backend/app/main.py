@@ -14,6 +14,7 @@ from app.api.routes.super_admin_routes import router as super_admin_router
 from app.api.routes.search_routes import router as search_router
 
 from app.db.session.database import Base, engine
+from app.db.migrate import upgrade_db_schema
 from app.services.storage.storage_initializer import initialize_storage
 
 # -----------------------------------
@@ -21,6 +22,12 @@ from app.services.storage.storage_initializer import initialize_storage
 # -----------------------------------
 
 Base.metadata.create_all(bind=engine)
+
+# Self-healing column migrations (safe to run on every startup)
+try:
+    upgrade_db_schema()
+except Exception as _migrate_err:
+    print(f"[MIGRATE] Non-fatal error during schema upgrade: {_migrate_err}")
 
 initialize_storage()
 

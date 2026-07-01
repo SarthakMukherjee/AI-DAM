@@ -15,6 +15,8 @@ class HybridSearchService:
         query: str,
         limit: int = 10,
         approved_only: bool = True,
+        filters: dict | None = None,
+        search_field: str | None = None,
     ) -> list[dict]:
         """
         Hybrid search: keyword + semantic, merged and re-ranked.
@@ -24,29 +26,33 @@ class HybridSearchService:
             query:         User search string
             limit:         Final number of results
             approved_only: Only approved assets
+            filters:       Faceted filter dict (domain, status, asset_type, etc.)
+            search_field:  Optional scope to a specific metadata field
 
         Returns:
             List of result dicts sorted by hybrid_score descending.
-            Each result includes hybrid_score, semantic_score, keyword_score
-            plus full asset data (same shape as semantic search results).
         """
 
         fetch_limit = limit * 3
 
-        # 1. KEYWORD — PostgreSQL
+        # 1. KEYWORD — PostgreSQL (with facets + field scoping)
         keyword_results = KeywordSearchService.search(
             db=db,
             query=query,
             limit=fetch_limit,
             approved_only=approved_only,
+            filters=filters,
+            search_field=search_field,
         )
 
-        # 2. SEMANTIC — ChromaDB + PostgreSQL
+        # 2. SEMANTIC — ChromaDB + PostgreSQL (with facets)
         semantic_results = SemanticSearchService.search(
             query=query,
             db=db,
             limit=fetch_limit,
             approved_only=approved_only,
+            filters=filters,
+            search_field=search_field,
         )
 
         # 3. MERGE + RE-RANK
@@ -104,6 +110,9 @@ def _merge_and_rank(
             "mime_type":         data.get("mime_type", ""),
             "status":            data.get("status", ""),
             "asset_metadata":    data.get("asset_metadata", {}),
+            "completeness_score": data.get("completeness_score", 0),
+            "ai_summary":        data.get("ai_summary"),
+            "perceptual_hash":   data.get("perceptual_hash"),
         })
 
     results.sort(key=lambda x: x["hybrid_score"], reverse=True)
