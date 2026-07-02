@@ -73,6 +73,12 @@ class User(Base):
         default=True
     )
 
+    # Time-limited access for external partners or contractors (Phase 4.2)
+    access_expiry = Column(
+        DateTime(timezone=True),
+        nullable=True
+    )
+
     # TIMESTAMPS
     created_at = Column(
         DateTime(timezone=True),

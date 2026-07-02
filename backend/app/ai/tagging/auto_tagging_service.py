@@ -142,7 +142,7 @@ class AutoTaggingService:
         3. description: A clear, concise description summarizing the content of the asset (2-3 sentences max).
         4. created_by: Recommend a creator (e.g. from PDF metadata author field if present, or suggest a realistic placeholder/default value like "Admin" or "AI Ingest Service").
         5. owner: Recommend an owner (e.g. from PDF metadata, or suggest a realistic placeholder/default value like "Admin" or "Marketing Team").
-        6. usage_rights: Recommend usage rights (e.g. "Standard License", "Internal Use Only", "All Rights Reserved", or based on extracted metadata if any).
+        6. usage_rights: Recommend usage rights. Must be one of: "Internal Only", "Licensed", "Public Domain", "Restricted", "Royalty Free", "Creative Commons".
 
         You should STRICTLY follow the following rules:
         - Return ONLY valid JSON

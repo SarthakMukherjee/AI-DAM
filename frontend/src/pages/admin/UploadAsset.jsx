@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useContext } from "react";
 
 import {
   Check,
@@ -13,46 +13,62 @@ import api from "../../api/axios";
 
 import Layout from "../../components/common/layout";
 
+import AuthContext from "../../context/AuthContext";
+
 import "../../styles/upload.css";
 
 const STEPS = ["Upload", "Mandatory", "Business", "Content"];
 
-const ASSET_TYPES = ["image", "video", "pdf", "document", "other"];
+const ASSET_TYPES = [
+  "image", "video", "pdf", "document",
+  "banner", "brochure", "case_study", "logo",
+  "social_creative", "pitch_deck", "brand_guideline",
+  "campaign_file", "testimonial",
+];
+
+const USAGE_RIGHTS = [
+  { value: "Internal Only",     label: "Internal Only" },
+  { value: "Licensed",          label: "Licensed" },
+  { value: "Public Domain",     label: "Public Domain" },
+  { value: "Restricted",        label: "Restricted" },
+  { value: "Royalty Free",      label: "Royalty Free" },
+  { value: "Creative Commons",  label: "Creative Commons" },
+];
 
 const DOMAIN_TYPES = [
   "AI",
+  "Staffing",
   "Marketing",
   "Sales",
-  "HR",
   "Finance",
+  "HR",
+  "Operations",
+  "Healthcare",
   "Tech",
   "Design",
-  "Other",
 ];
 
 const USE_CASES = [
-  "website",
-  "social_media",
   "email",
   "presentation",
-  "advertisement",
-  "other",
+  "website",
+  "campaign",
+  "sales",
+  "social_media",
+  "advertisment",
 ];
 
 const AUDIENCE_TYPES = [
-  "enterprise",
-  "consumer",
-  "startup",
-  "partner",
-  "public",
   "b2b",
+  "enterprise",
+  "startup",
+  "consumer",
+  "partner",
 ];
 
 const FUNNEL_STAGES = [
   "awareness",
   "consideration",
-  "decision",
-  "retention",
   "conversion",
 ];
 
@@ -74,7 +90,7 @@ const defaultForm = {
 
   created_by: "",
 
-  usage_rights: "",
+  usage_rights: "Internal Only",
 
   owner: "",
 
@@ -117,6 +133,18 @@ const UploadAsset = () => {
   const [selectedParentAsset, setSelectedParentAsset] = useState(null);
 
   const [aiSuggestedFields, setAiSuggestedFields] = useState([]);
+
+  // Phase 1.7 — pre-populate created_by and owner from authenticated user
+  const { user } = useContext(AuthContext);
+  useEffect(() => {
+    if (user?.full_name) {
+      setForm((prev) => ({
+        ...prev,
+        created_by: prev.created_by || user.full_name,
+        owner: prev.owner || user.full_name,
+      }));
+    }
+  }, [user]);
 
   // FETCH ASSETS
 
@@ -698,7 +726,7 @@ const UploadAsset = () => {
                     )}
                   </label>
 
-                  <input
+                  <select
                     name="usage_rights"
                     value={form.usage_rights}
                     onChange={handleChange}
@@ -707,7 +735,13 @@ const UploadAsset = () => {
                         ? "ai-recommended-input"
                         : ""
                     }
-                  />
+                  >
+                    {USAGE_RIGHTS.map(({ value, label }) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
             )}

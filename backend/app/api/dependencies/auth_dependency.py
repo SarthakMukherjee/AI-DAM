@@ -46,6 +46,20 @@ def get_current_user(
             detail="User not found or deactivated"
         )
 
+    # Check for time-limited access expiry (Phase 4.2)
+    from datetime import datetime, timezone
+    if user.access_expiry:
+        now = datetime.now(timezone.utc)
+        # Ensure user.access_expiry is compared correctly (both must be timezone-aware or naive)
+        expiry = user.access_expiry
+        if expiry.tzinfo is None:
+            expiry = expiry.replace(tzinfo=timezone.utc)
+        if now > expiry:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User access has expired"
+            )
+
     return user
 
 # All the role-based dependencies below stay exactly the same

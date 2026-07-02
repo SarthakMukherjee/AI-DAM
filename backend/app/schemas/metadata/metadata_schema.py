@@ -8,7 +8,8 @@ from app.schemas.metadata.metadata_enums import (
     UseCaseTypes,
     AudienceType,
     FunnelStage,
-    ToneType
+    ToneType,
+    UsageRightsType,
 )
 
 # MANDATORY METADATA
@@ -18,7 +19,7 @@ class MandatoryMetadata(BaseModel):
     asset_type: AssetTypes
     description: str
     created_by: str
-    usage_rights: str
+    usage_rights: UsageRightsType
     owner: str
 
 # BUSINESS METADATA

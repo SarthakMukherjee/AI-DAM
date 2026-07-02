@@ -122,6 +122,7 @@ class KeywordSearchService:
         approved_only: bool = True,
         filters: dict | None = None,
         search_field: str | None = None,
+        current_user = None,
     ) -> list[dict]:
 
         terms = [
@@ -139,6 +140,11 @@ class KeywordSearchService:
             .filter(Asset.is_latest == True)
             .filter(Asset.is_archived == False)
         )
+
+        # Filter out restricted assets if user is not in the allowed roles list (Phase 4.1)
+        if current_user and current_user.role not in ["super_admin", "admin"]:
+            role_containment = Asset.asset_metadata["governance"]["restricted_to_roles"].contains([current_user.role])
+            base_query = base_query.filter(or_(Asset.status != "restricted", role_containment))
 
         if approved_only:
             base_query = (

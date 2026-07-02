@@ -4,6 +4,8 @@ from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.database import get_db
+from app.api.dependencies.auth_dependency import get_current_user, require_admin
+from app.models.user.user_model import User
 from app.models.asset.asset_model import Asset
 
 from app.ai.retrieval.semantic_search_service import SemanticSearchService
@@ -37,6 +39,7 @@ router = APIRouter(
 async def semantic_search(
     body: SemanticSearchRequest,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     FLOW:
@@ -50,6 +53,7 @@ async def semantic_search(
             approved_only=body.approved_only,
             filters=body.filters.model_dump(exclude_none=True) if body.filters else None,
             search_field=body.search_field,
+            current_user=current_user,
         )
 
     except Exception as e:
@@ -85,6 +89,7 @@ async def semantic_search(
 async def hybrid_search(
     body: HybridSearchRequest,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     try:
         raw_results = HybridSearchService.search(
@@ -94,6 +99,7 @@ async def hybrid_search(
             approved_only=body.approved_only,
             filters=body.filters.model_dump(exclude_none=True) if body.filters else None,
             search_field=body.search_field,
+            current_user=current_user,
         )
 
     except Exception as e:
@@ -124,6 +130,7 @@ async def hybrid_search(
 async def reindex_asset(
     asset_id: str,
     db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
 ):
     asset = db.query(Asset).filter(Asset.id == asset_id).first()
 
@@ -146,4 +153,4 @@ async def reindex_asset(
         "message": f"Asset {asset_id} reindexed successfully",
         "asset_id": asset_id,
         "status":   asset.status,
-    }
+    }

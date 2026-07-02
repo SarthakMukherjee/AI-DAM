@@ -13,6 +13,7 @@ import os
 import json
 
 from fastapi.responses import FileResponse, RedirectResponse
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from pydantic import ValidationError
 from slowapi import Limiter
@@ -49,6 +50,67 @@ router = APIRouter(
 asset_service = AssetService()
 
 
+def check_restricted_access(asset: Asset, user: User) -> None:
+    """Enforces asset-level access restrictions for restricted status (Phase 4.1)."""
+    if asset.status == "restricted":
+        if user.role not in ["super_admin", "admin"]:
+            meta = asset.asset_metadata or {}
+            gov = meta.get("governance") or {}
+            allowed_roles = gov.get("restricted_to_roles") or ["admin", "reviewer", "super_admin"]
+            if user.role not in allowed_roles:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Access denied: this asset is restricted to specific roles"
+                )
+
+
+
+def _validate_asset_type_rules(metadata) -> None:
+    """
+    Phase 1.2 — Per-asset-class conditional metadata validation.
+    Called after Pydantic schema validation on every upload.
+    Raises HTTP 422 with a clear message if a rule is violated.
+    """
+    mand = metadata.mandatory
+    biz  = metadata.business
+    asset_type = mand.asset_type.value if hasattr(mand.asset_type, "value") else str(mand.asset_type)
+
+    errors = []
+
+    if asset_type in ("video", "social_creative"):
+        # Videos and social creatives must have at minimum a campaign OR service_line
+        if not biz.campaign and not biz.service_line:
+            errors.append(
+                f"Asset type '{asset_type}' requires either 'campaign' or 'service_line' "
+                "in the business metadata section."
+            )
+
+    if asset_type in ("brochure", "campaign_file"):
+        # Brochures and campaign files must have BOTH campaign and service_line
+        if not biz.campaign:
+            errors.append(f"Asset type '{asset_type}' requires 'campaign' in business metadata.")
+        if not biz.service_line:
+            errors.append(f"Asset type '{asset_type}' requires 'service_line' in business metadata.")
+
+    if asset_type == "pitch_deck":
+        # Pitch decks must specify target audience and use case
+        if not biz.audience:
+            errors.append("Asset type 'pitch_deck' requires 'audience' in business metadata.")
+        if not biz.use_case:
+            errors.append("Asset type 'pitch_deck' requires 'use_case' in business metadata.")
+
+    if asset_type in ("logo", "brand_guideline"):
+        # Logos and brand guidelines must be assigned to a domain
+        if not biz.domain:
+            errors.append(f"Asset type '{asset_type}' requires 'domain' in business metadata.")
+
+    if errors:
+        raise HTTPException(
+            status_code=422,
+            detail={"asset_type_validation_errors": errors}
+        )
+
+
 def sanitize_json_string(raw: str) -> str:
     return (
         raw.strip()
@@ -59,9 +121,14 @@ def sanitize_json_string(raw: str) -> str:
     )
 
 
-def log_usage(asset_id: str, action: str, db: Session):
+def log_usage(asset_id: str, action: str, db: Session, user_id: str | None = None):
     try:
-        usage = AssetUsage(asset_id=asset_id, action=action, usage_count=1)
+        usage = AssetUsage(
+            asset_id=asset_id,
+            action=action,
+            usage_count=1,
+            user_id=user_id,
+        )
         db.add(usage)
         db.commit()
     except Exception as e:
@@ -102,6 +169,9 @@ async def upload_asset(
         raise HTTPException(status_code=422, detail=valid_errors.errors())
     except Exception as excep_errors:
         raise HTTPException(status_code=500, detail=str(excep_errors))
+
+    # Phase 1.2 — per-asset-class metadata rules
+    _validate_asset_type_rules(validated_metadata)
 
     asset = await asset_service.upload_asset(
         file=file,
@@ -177,6 +247,11 @@ def list_assets(
         # All other content team / admin roles see everything
         query = query.filter(Asset.is_archived == False)
 
+    # Filter out restricted assets if user is not in the allowed roles list (Phase 4.1)
+    if current_user.role not in ["super_admin", "admin"]:
+        role_containment = Asset.asset_metadata["governance"]["restricted_to_roles"].contains([current_user.role])
+        query = query.filter(or_(Asset.status != "restricted", role_containment))
+
     # Domain-scoped access: if user has domain restriction, filter assets
     if current_user.allowed_domains:
       # Filter by business.domain inside JSONB
@@ -249,11 +324,14 @@ def download_asset(
 
     if (
         current_user.role == "user"
-        and (asset.status != "approved" or not asset.is_latest)
+        and (asset.status != "approved" and asset.status != "restricted" or not asset.is_latest)
     ):
         raise HTTPException(status_code=403, detail="Asset not available")
 
-    log_usage(asset_id, "download", db)
+    # Enforce Phase 4.1 restricted access control
+    check_restricted_access(asset, current_user)
+
+    log_usage(asset_id, "download", db, user_id=current_user.id)
 
     # cloud URL — redirect browser directly
     if is_cloud_url(asset.storage_path):
@@ -282,15 +360,18 @@ def preview_asset(
     if not asset:
         raise HTTPException(status_code=404, detail="Asset not found")
 
-    if current_user.role == "user" and asset.status != "approved":
+    if current_user.role == "user" and asset.status != "approved" and asset.status != "restricted":
         raise HTTPException(status_code=403, detail="Asset not available")
+
+    # Enforce Phase 4.1 restricted access control
+    check_restricted_access(asset, current_user)
 
     preview_path = asset.preview_path or asset.thumbnail_path
 
     if not preview_path:
         raise HTTPException(status_code=404, detail="Preview unavailable")
 
-    log_usage(asset_id, "preview", db)
+    log_usage(asset_id, "preview", db, user_id=current_user.id)
 
     # cloud URL — redirect
     if is_cloud_url(preview_path):
@@ -315,13 +396,16 @@ def pdf_viewer(
     if not asset:
         raise HTTPException(status_code=404, detail="Asset not found")
 
-    if current_user.role == "user" and asset.status != "approved":
+    if current_user.role == "user" and asset.status != "approved" and asset.status != "restricted":
         raise HTTPException(status_code=403, detail="Asset not available")
+
+    # Enforce Phase 4.1 restricted access control
+    check_restricted_access(asset, current_user)
 
     if asset.mime_type != "application/pdf":
         raise HTTPException(status_code=400, detail="Asset is not a PDF")
 
-    log_usage(asset_id, "preview", db)
+    log_usage(asset_id, "preview", db, user_id=current_user.id)
 
     # cloud URL — redirect so browser opens PDF natively
     if is_cloud_url(asset.storage_path):
@@ -355,8 +439,11 @@ def pdf_page_image(
     if not asset:
         raise HTTPException(status_code=404, detail="Asset not found")
 
-    if current_user.role == "user" and asset.status != "approved":
+    if current_user.role == "user" and asset.status != "approved" and asset.status != "restricted":
         raise HTTPException(status_code=403, detail="Asset not available")
+
+    # Enforce Phase 4.1 restricted access control
+    check_restricted_access(asset, current_user)
 
     if asset.mime_type != "application/pdf":
         raise HTTPException(status_code=400, detail="Asset is not a PDF")
@@ -397,6 +484,8 @@ def asset_version_history(
     target = db.query(Asset).filter(Asset.id == asset_id).first()
     if not target:
         raise HTTPException(status_code=404, detail="Asset not found")
+
+    check_restricted_access(target, current_user)
 
     root_id = target.root_asset_id or target.id
 
@@ -457,6 +546,8 @@ def find_similar_assets(
     target = db.query(Asset).filter(Asset.id == asset_id).first()
     if not target:
         raise HTTPException(status_code=404, detail="Asset not found")
+
+    check_restricted_access(target, current_user)
 
     if not target.perceptual_hash:
         raise HTTPException(
@@ -589,81 +680,6 @@ def archive_asset(
 # -----------------------------------
 # GET VERSION HISTORY
 # -----------------------------------
-@router.get("/{asset_id}/versions")
-def get_asset_versions(
-    asset_id: str,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    from sqlalchemy import or_
-    asset = db.query(Asset).filter(Asset.id == asset_id).first()
-    if not asset:
-        raise HTTPException(status_code=404, detail="Asset not found")
-
-    root_id = asset.root_asset_id or asset.id
-
-    versions = (
-        db.query(Asset)
-        .filter(
-            or_(
-                Asset.root_asset_id == root_id,
-                Asset.id == root_id
-            )
-        )
-        .order_by(Asset.version.desc())
-        .all()
-    )
-    return versions
-
-
-# -----------------------------------
-# GET VISUALLY SIMILAR ASSETS
-# -----------------------------------
-@router.get("/{asset_id}/similar")
-def get_similar_assets(
-    asset_id: str,
-    threshold: int = NEAR_DUPLICATE_THRESHOLD_DISTANCE,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    asset = db.query(Asset).filter(Asset.id == asset_id).first()
-    if not asset:
-        raise HTTPException(status_code=404, detail="Asset not found")
-
-    if not asset.perceptual_hash or not (asset.mime_type and asset.mime_type.startswith("image/")):
-        return []
-
-    other_images = (
-        db.query(Asset)
-        .filter(
-            Asset.id != asset_id,
-            Asset.perceptual_hash != None,
-            Asset.mime_type.ilike("image/%")
-        )
-        .all()
-    )
-
-    similar = []
-    for candidate in other_images:
-        dist = hamming_distance(asset.perceptual_hash, candidate.perceptual_hash)
-        if dist <= threshold:
-            similar.append({
-                "id": str(candidate.id),
-                "original_filename": candidate.original_filename,
-                "thumbnail_path": candidate.thumbnail_path,
-                "preview_path": candidate.preview_path,
-                "storage_path": candidate.storage_path,
-                "status": candidate.status,
-                "version": candidate.version,
-                "mime_type": candidate.mime_type,
-                "asset_metadata": candidate.asset_metadata or {},
-                "similarity": similarity_score(asset.perceptual_hash, candidate.perceptual_hash),
-                "distance": dist
-            })
-
-    similar.sort(key=lambda x: x["distance"])
-    return similar
-
 
 # -----------------------------------
 # DUPLICATE CANDIDATES
@@ -761,11 +777,15 @@ def get_asset(
     # Access control for restricted view roles
     RESTRICTED_VIEW_ROLES = ["user", "sales_user", "external_partner"]
     if current_user.role in RESTRICTED_VIEW_ROLES:
-        if asset.status != "approved" or asset.is_archived:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You do not have permission to view this asset"
-            )
+        if asset.status != "approved" and asset.status != "restricted": # Allow restricted assets to be checked by check_restricted_access
+            if asset.status != "approved" or asset.is_archived:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You do not have permission to view this asset"
+                )
+
+    # Enforce Phase 4.1 restricted access control
+    check_restricted_access(asset, current_user)
 
     # Domain-scoped access control
     if current_user.allowed_domains:
@@ -776,6 +796,8 @@ def get_asset(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="You do not have permission to access assets in this domain"
                 )
+        except HTTPException:
+            raise
         except Exception:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,

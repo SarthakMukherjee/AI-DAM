@@ -70,6 +70,7 @@ def _format_results(
     approved_only: bool = True,
     filters: dict | None = None,
     query: str | None = None,
+    current_user = None,
 ):
 
     ids = raw.get("ids", [[]])[0]
@@ -95,6 +96,16 @@ def _format_results(
         # Skip archived assets — hidden from all search results
         if asset.is_archived:
             continue
+
+        # Filter out restricted assets if user is not in the allowed roles list (Phase 4.1)
+        if asset.status == "restricted":
+            user_role = current_user.role if current_user else None
+            if user_role not in ["super_admin", "admin"]:
+                meta = asset.asset_metadata or {}
+                gov = meta.get("governance") or {}
+                allowed_roles = gov.get("restricted_to_roles") or ["admin", "reviewer", "super_admin"]
+                if user_role not in allowed_roles:
+                    continue
 
         # Post-filter: geography and status (can't be done in Chroma)
         if filters:
@@ -208,6 +219,7 @@ class SemanticSearchService:
         approved_only: bool = True,
         filters: dict | None = None,
         search_field: str | None = None,
+        current_user = None,
     ):
 
         # QUERY → EMBEDDING
@@ -250,4 +262,5 @@ class SemanticSearchService:
             approved_only=approved_only,
             filters=filters,
             query=query,
+            current_user=current_user,
         )

@@ -31,6 +31,14 @@ class AssetUsage(Base):
         index=True
     )
 
+    # USER WHO PERFORMED THE ACTION (Phase 1.3)
+    # nullable to preserve backward compatibility with old rows
+    user_id = Column(
+        String,
+        nullable=True,
+        index=True
+    )
+
     # ACTION TYPE
     # download / preview / search
     action = Column(

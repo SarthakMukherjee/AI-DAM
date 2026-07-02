@@ -1,4 +1,4 @@
-﻿from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.api.dependencies.database import get_db
 from app.api.dependencies.auth_dependency import require_reviewer
@@ -9,23 +9,48 @@ from app.schemas.user.schemas import ReviewRequest, PublishRequest, RestrictRequ
 
 router = APIRouter(prefix="/reviewer", tags=["Reviewer"])
 
+def check_reviewer_scope(asset: Asset, user: User) -> None:
+    """Enforces that scoped reviewers can only review assets in their allowed_domains (Phase 4.3)."""
+    if user.allowed_domains:
+        try:
+            asset_domain = (asset.asset_metadata or {}).get("business", {}).get("domain")
+            if asset_domain not in user.allowed_domains:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Access denied: You are not authorized to review assets in this domain"
+                )
+        except HTTPException:
+            raise
+        except Exception:
+            raise HTTPException(
+                status_code=400,
+                detail="Failed to verify reviewer domain scope"
+            )
+
+
 @router.get("/queue")
-def review_queue(db: Session = Depends(get_db), _: User = Depends(require_reviewer)):
-    return db.query(Asset).filter(Asset.status.in_(["draft", "pending_review"])).order_by(Asset.created_at.asc()).all()
+def review_queue(db: Session = Depends(get_db), current_user: User = Depends(require_reviewer)):
+    query = db.query(Asset).filter(Asset.status.in_(["draft", "pending_review"]))
+    if current_user.allowed_domains:
+        domain_filter = Asset.asset_metadata["business"]["domain"].as_string().in_(current_user.allowed_domains)
+        query = query.filter(domain_filter)
+    return query.order_by(Asset.created_at.asc()).all()
 
 @router.post("/assets/{asset_id}/approve")
-def approve_asset(asset_id: str, db: Session = Depends(get_db), _: User = Depends(require_reviewer)):
+def approve_asset(asset_id: str, db: Session = Depends(get_db), current_user: User = Depends(require_reviewer)):
     asset = db.query(Asset).filter(Asset.id == asset_id).first()
     if not asset: raise HTTPException(status_code=404, detail="Asset not found")
+    check_reviewer_scope(asset, current_user)
     if asset.status not in ["draft", "pending_review"]: raise HTTPException(status_code=400, detail=f"Asset is already {asset.status}")
     asset.status = "approved"
     db.commit()
     return {"message": "Asset approved", "asset_id": asset_id}
 
 @router.post("/assets/{asset_id}/reject")
-def reject_asset(asset_id: str, body: ReviewRequest, db: Session = Depends(get_db), _: User = Depends(require_reviewer)):
+def reject_asset(asset_id: str, body: ReviewRequest, db: Session = Depends(get_db), current_user: User = Depends(require_reviewer)):
     asset = db.query(Asset).filter(Asset.id == asset_id).first()
     if not asset: raise HTTPException(status_code=404, detail="Asset not found")
+    check_reviewer_scope(asset, current_user)
     if asset.status not in ["draft", "pending_review", "approved"]: raise HTTPException(status_code=400, detail=f"Cannot reject: {asset.status}")
     asset.status = "rejected"
     db.commit()
@@ -39,9 +64,10 @@ def reject_asset(asset_id: str, body: ReviewRequest, db: Session = Depends(get_d
     return {"message": "Asset rejected", "asset_id": asset_id, "rejection_category": body.rejection_category, "reason": body.reason}
 
 @router.post("/assets/{asset_id}/publish")
-def publish_asset(asset_id: str, body: PublishRequest, db: Session = Depends(get_db), _: User = Depends(require_reviewer)):
+def publish_asset(asset_id: str, body: PublishRequest, db: Session = Depends(get_db), current_user: User = Depends(require_reviewer)):
     asset = db.query(Asset).filter(Asset.id == asset_id).first()
     if not asset: raise HTTPException(status_code=404, detail="Asset not found")
+    check_reviewer_scope(asset, current_user)
     if asset.status != "approved": raise HTTPException(status_code=400, detail=f"Only approved assets can be published. Current: {asset.status}")
     asset.status = "published"
     if body.publish_note or body.published_channels:
@@ -54,9 +80,10 @@ def publish_asset(asset_id: str, body: PublishRequest, db: Session = Depends(get
     return {"message": "Asset published", "asset_id": asset_id, "status": "published"}
 
 @router.post("/assets/{asset_id}/restrict")
-def restrict_asset(asset_id: str, body: RestrictRequest, db: Session = Depends(get_db), _: User = Depends(require_reviewer)):
+def restrict_asset(asset_id: str, body: RestrictRequest, db: Session = Depends(get_db), current_user: User = Depends(require_reviewer)):
     asset = db.query(Asset).filter(Asset.id == asset_id).first()
     if not asset: raise HTTPException(status_code=404, detail="Asset not found")
+    check_reviewer_scope(asset, current_user)
     asset.status = "restricted"
     meta = dict(asset.asset_metadata or {})
     meta.setdefault("governance", {})
@@ -67,9 +94,10 @@ def restrict_asset(asset_id: str, body: RestrictRequest, db: Session = Depends(g
     return {"message": "Asset restricted", "asset_id": asset_id, "status": "restricted", "reason": body.reason}
 
 @router.post("/assets/{asset_id}/unrestrict")
-def unrestrict_asset(asset_id: str, db: Session = Depends(get_db), _: User = Depends(require_reviewer)):
+def unrestrict_asset(asset_id: str, db: Session = Depends(get_db), current_user: User = Depends(require_reviewer)):
     asset = db.query(Asset).filter(Asset.id == asset_id).first()
     if not asset: raise HTTPException(status_code=404, detail="Asset not found")
+    check_reviewer_scope(asset, current_user)
     if asset.status != "restricted": raise HTTPException(status_code=400, detail="Asset is not restricted")
     asset.status = "approved"
     db.commit()

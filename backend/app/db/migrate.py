@@ -42,6 +42,12 @@ _ASSET_COLUMNS: list[tuple[str, str]] = [
 
 _USER_COLUMNS: list[tuple[str, str]] = [
     ("allowed_domains",    "VARCHAR[]"),
+    ("access_expiry",       "TIMESTAMP WITH TIME ZONE"),
+]
+
+# Phase 1.3 — track who performed each download/preview action
+_ASSET_USAGE_COLUMNS: list[tuple[str, str]] = [
+    ("user_id", "VARCHAR"),
 ]
 
 
@@ -74,6 +80,18 @@ def upgrade_db_schema() -> None:
                 print(f"[MIGRATE] Column ensured: users.{col_name}")
             except Exception as e:
                 print(f"[MIGRATE] Warning — users.{col_name}: {e}")
+
+        # Asset Usage Table
+        for col_name, col_type in _ASSET_USAGE_COLUMNS:
+            ddl = text(
+                f"ALTER TABLE asset_usage "
+                f"ADD COLUMN IF NOT EXISTS {col_name} {col_type};"
+            )
+            try:
+                conn.execute(ddl)
+                print(f"[MIGRATE] Column ensured: asset_usage.{col_name}")
+            except Exception as e:
+                print(f"[MIGRATE] Warning — asset_usage.{col_name}: {e}")
 
         conn.commit()
 

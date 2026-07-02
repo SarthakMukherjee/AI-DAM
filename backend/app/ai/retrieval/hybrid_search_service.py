@@ -17,6 +17,7 @@ class HybridSearchService:
         approved_only: bool = True,
         filters: dict | None = None,
         search_field: str | None = None,
+        current_user = None,
     ) -> list[dict]:
         """
         Hybrid search: keyword + semantic, merged and re-ranked.
@@ -28,6 +29,7 @@ class HybridSearchService:
             approved_only: Only approved assets
             filters:       Faceted filter dict (domain, status, asset_type, etc.)
             search_field:  Optional scope to a specific metadata field
+            current_user:  Authenticated user object for role filtering
 
         Returns:
             List of result dicts sorted by hybrid_score descending.
@@ -43,6 +45,7 @@ class HybridSearchService:
             approved_only=approved_only,
             filters=filters,
             search_field=search_field,
+            current_user=current_user,
         )
 
         # 2. SEMANTIC — ChromaDB + PostgreSQL (with facets)
@@ -53,6 +56,7 @@ class HybridSearchService:
             approved_only=approved_only,
             filters=filters,
             search_field=search_field,
+            current_user=current_user,
         )
 
         # 3. MERGE + RE-RANK

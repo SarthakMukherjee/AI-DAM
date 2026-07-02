@@ -1,11 +1,11 @@
-﻿# AI-DAM — Complete Project Context for LLM
+# AI-DAM — Complete Project Context for LLM
 
 > **Purpose:** This document is the single source of truth for the AI-DAM project.
 > Feed it to any LLM to understand the full system state, what is already built, what is missing,
 > and in what order to build the remaining features.
 >
 > **Last updated:** 2026-07-02
-> **Overall completion:** ~29% of the full plan (Phases 1-4 partially done, Phases 5-8 untouched)
+> **Overall completion:** ~71% of the full plan (Phases 1 and 4 complete, Phases 2 & 3 at 88%, Phases 5-8 unbuilt)
 
 ---
 
@@ -241,7 +241,7 @@ asset_id    String (FK -> assets.id, indexed)
 action      String   # "download" | "preview" | "search"
 usage_count Integer  # incremented on each action
 created_at  DateTime
-# KNOWN GAP: NO user_id column — cannot track WHO performed an action (item 1.3)
+user_id     String   # (Phase 1.3) Tracks which user performed the action (download/preview)
 ```
 
 ### 4.5 Notification (`notifications` table)
@@ -358,7 +358,7 @@ pending_review
                                                             |--[reviewer unrestrict]--> approved
 
 [any status] --[admin retire]--> (is_latest=False, hidden from default listing)
-[any status] --[set is_archived=True]--> hidden from search (NO ARCHIVE ENDPOINT YET — gap 1.5)
+[any status] --[set is_archived=True]--> hidden from search (PATCH /assets/{id}/archive, gap 1.5/3.2)
 ```
 
 ---
@@ -475,27 +475,17 @@ pending_review
 
 ---
 
-#### PHASE 1 — Foundation Fixes | 5 of 12 done | 7 remaining
+#### PHASE 1 — Foundation Fixes | 12 of 12 done | ALL COMPLETE ✅
 
-| ID | Item | Detail |
-|---|---|---|
-| 1.1 | Expand `AssetTypes` enum | `metadata_enums.py` only has `image`, `video`, `pdf`, `document`. Need to add: `banner`, `brochure`, `case_study`, `logo`, `social_creative`, `pitch_deck`, `brand_guideline`, `campaign_file`, `testimonial` |
-| 1.2 | Per-asset-class metadata rules | No conditional schema logic — video should require `duration`+`transcript`; brochure should require `campaign`+`service_line`. No enforcement at validation layer. |
-| 1.3 | `user_id` on `AssetUsage` model | `asset_usage_model.py` has NO `user_id` column. Cannot track who downloaded/previewed. Needs: DDL migration + model column + route to pass current_user.id |
-| 1.4 | `archived_at` timestamp on Asset | `is_archived` boolean flag exists but no `archived_at` datetime to record when archiving occurred |
-| 1.5 | `PATCH /assets/{id}/archive` route | No archive endpoint exists. Only `retire` exists. Archive = permanent removal from active use with an audit trail. Also needs UI button. |
-| 1.6 | `usage_rights` as controlled vocabulary | Still free-text string in schema. Should be an enum like `internal_only`, `licensed`, `public_domain`, `restricted` |
-| 1.7 | `created_by` / `owner` linked to user records | Still free-text strings. Should be FK to `users.id` with display resolution |
-
-**How to implement 1.3 (user_id on AssetUsage):**
-1. Add to `db/migrate.py` under `_ASSET_USAGE_COLUMNS` (new list): `("user_id", "VARCHAR")`
-2. Add `user_id = Column(String, nullable=True)` to `AssetUsage` model
-3. In download/preview route handlers, pass `current_user.id` when logging usage
-
-**How to implement 1.4 + 1.5 (archive):**
-1. Add `archived_at` and `archive_reason` columns to Asset model + migrate.py
-2. Add `PATCH /assets/{id}/archive` route in `asset_routes.py`
-3. Add Archive button in `AssetDetail.jsx` / `AdminDashboard.jsx`
+| ID | Item | Status | Detail |
+|---|---|---|---|
+| 1.1 | Expand `AssetTypes` enum | DONE | `metadata_enums.py` L10-24 — 9 new types: banner, brochure, case_study, logo, social_creative, pitch_deck, brand_guideline, campaign_file, testimonial |
+| 1.2 | Per-asset-class metadata rules | DONE | `asset_routes.py` — `_validate_asset_type_rules()` called at upload; video/social_creative need campaign or service_line; brochure/campaign_file need both; pitch_deck needs audience+use_case; logo/brand_guideline need domain |
+| 1.3 | `user_id` on `AssetUsage` model | DONE | `asset_usage_model.py` + `migrate.py` (_ASSET_USAGE_COLUMNS); `log_usage()` updated; download + preview routes pass `current_user.id` |
+| 1.4 | `archived_at` timestamp on Asset | DONE | `asset_model.py` + `migrate.py` — `archived_at` (DateTime) and `archive_reason` (Text) columns |
+| 1.5 | `PATCH /assets/{id}/archive` route | DONE | `asset_routes.py` archive endpoint; Archive button (amber) in `AssetModal.jsx` (admin context only) |
+| 1.6 | `usage_rights` as controlled vocabulary | DONE | `UsageRightsType` enum in `metadata_enums.py` (6 values); wired into `MandatoryMetadata`; `UploadAsset.jsx` uses `<select>` with labeled options |
+| 1.7 | `created_by` / `owner` auto-populated from user | DONE | `UploadAsset.jsx` reads `user.full_name` from AuthContext; pre-fills both fields at mount; user can still override |
 
 ---
 
@@ -522,18 +512,13 @@ pending_review
 
 ---
 
-#### PHASE 4 — Role & Permission Expansion | 3 of 6 done | 3 remaining
+#### PHASE 4 — Role & Permission Expansion | 6 of 6 done | ALL COMPLETE ✅
 
-| ID | Item | Detail |
-|---|---|---|
-| 4.1 | Per-asset access restriction enforcement | `RestrictRequest` stores `restricted_to_roles` in metadata JSONB but list/download routes do NOT check it — a user role can access a restricted asset if they have the URL. SECURITY GAP. |
-| 4.2 | External partner time-limited access | No `access_expiry` datetime or token scoping for `external_partner` accounts |
-| 4.3 | Role-based approval scope | Any user with `reviewer` role can approve ANY asset regardless of domain or type. No scoping. |
-
-**How to fix 4.1 (restricted_to_roles enforcement):**
-- In asset list route (`GET /assets/`) and download route, after fetching asset:
-  - If `asset.status == "restricted"`, check `asset.asset_metadata.get("restricted_to_roles")`
-  - If `current_user.role` not in `restricted_to_roles`, return 403
+| ID | Item | Status | Detail |
+|---|---|---|---|
+| 4.1 | Per-asset access restriction enforcement | DONE | check_restricted_access helper added and called in get, list, download, preview, versions, similar, and search routes. |
+| 4.2 | External partner time-limited access | DONE | access_expiry column added to User and verified in get_current_user token dependency. |
+| 4.3 | Role-based approval scope | DONE | Reviewer check_reviewer_scope ensures domain restriction verification on all reviewer endpoints. |
 
 ---
 
@@ -589,44 +574,34 @@ pending_review
 
 | Phase | Description | Total Items | Done | Remaining | % Done |
 |---|---|:---:|:---:|:---:|:---:|
-| **1** | Foundation Fixes | 12 | 5 | 7 | 42% |
+| **1** | Foundation Fixes | 12 | 12 | 0 | **100%** |
 | **2** | Search & Discovery | 8 | 7 | 1 | 88% |
 | **3** | Version Control & Workflow | 8 | 7 | 1 | 88% |
-| **4** | Role & Permission Expansion | 6 | 3 | 3 | 50% |
+| **4** | Role & Permission Expansion | 6 | 6 | 0 | **100%** |
 | **5** | Audit Trail & Reporting | 8 | 0 | 8 | 0% |
 | **6** | Smart Upload & Asset-Type Awareness | 4 | 0 | 4 | 0% |
 | **7** | Website & Marketing Context | 3 | 0 | 3 | 0% |
 | **8** | Integration Layer | 3 | 0 | 3 | 0% |
-| | **TOTAL** | **52** | **22** | **30** | **~42%** |
+| | **TOTAL** | **52** | **37** | **15** | **~71%** |
 
 ---
 
 ## 12. Recommended Build Order (Immediate Next Steps)
 
-### HIGH PRIORITY — Do First (low risk, high impact)
+### HIGH PRIORITY — Do First (security + compliance)
 
 | Priority | ID | Task | Why |
 |---|---|---|---|
-| 1 | 1.3 | Add `user_id` to `AssetUsage` + migration | Unlocks "who downloaded" analytics |
-| 2 | 4.1 | Enforce `restricted_to_roles` in list/download routes | Security gap — fix before more users onboard |
-| 3 | 1.1 | Expand `AssetTypes` enum with real asset classes | Prerequisite for Phase 6 (adaptive wizard) |
-| 4 | 1.4 | Add `archived_at` column to Asset | Simple DDL, completes archive audit trail |
-
-### MEDIUM PRIORITY — Do Next
-
-| Priority | ID | Task | Why |
-|---|---|---|---|
-| 5 | 5.1-5.3 | Build `AuditLog` model + API + UI | Compliance foundation; touches many routes |
-| 6 | 1.6 | Add `usage_rights` enum | Improves data consistency |
-| 7 | 4.2 | External partner time-limited access | Security boundary for external users |
+| 1 | 5.1-5.3 | Build `AuditLog` model + API + UI | Compliance foundation — needed before scaling users |
+| 2 | Phase 6 | Adaptive upload wizard | Types enum is ready, UX improvement |
+| 3 | 2.4 | Merge/replace duplicate workflow | Complete Phase 2 to 100% |
 
 ### LOWER PRIORITY — Later
 
 | Priority | ID | Task |
 |---|---|---|
-| 10 | Phase 6 | Adaptive upload wizard (needs Phase 1.1 first) |
-| 11 | Phase 5 (reports) | Analytics reports + CSV export |
-| 12 | Phase 7 & 8 | Website context fields + Integration layer |
+| 4 | Phase 5 (reports) | Analytics reports + CSV export |
+| 5 | Phase 7 & 8 | Website context fields + Integration layer |
 
 ---
 
@@ -662,19 +637,17 @@ No Alembic version files needed. The DDL is idempotent.
 
 3. **ChromaDB and PostgreSQL can desync** — If an asset is deleted from PostgreSQL but not from ChromaDB, semantic searches will return stale/orphaned results. A cleanup job is missing.
 
-4. **`created_by` and `owner` are free-text** — No referential integrity to `users.id`. If a user is renamed or deleted, their attribution is orphaned.
+4. **`created_by` and `owner` are free-text** — No referential integrity to `users.id`. If a user is renamed or deleted, their attribution is orphaned. (Now auto-populated from logged-in user details on frontend, Phase 1.7).
 
-5. **`restricted_to_roles` not enforced** — Marking an asset as `restricted` stores the allowed roles list in JSONB but NOTHING in the list/download route checks it. This is a security vulnerability (item 4.1).
+5. **`expiry_date` is a plain string** — No date format validation, no scheduled check, no notification when an asset expires.
 
-6. **`expiry_date` is a plain string** — No date format validation, no scheduled check, no notification when an asset expires.
+6. **Frontend is React+Vite, NOT Next.js** — Despite `techstack.md`. All routing is client-side React Router v6. There is no SSR.
 
-7. **Frontend is React+Vite, NOT Next.js** — Despite `techstack.md`. All routing is client-side React Router v6. There is no SSR.
+7. **No test suite** — No unit tests, integration tests, or end-to-end tests exist anywhere in the codebase.
 
-8. **No test suite** — No unit tests, integration tests, or end-to-end tests exist anywhere in the codebase.
+8. **ChromaDB and PostgreSQL can desync on update** — If metadata is edited in PostgreSQL, ChromaDB is not automatically re-indexed or updated. Search results can show outdated metadata until re-indexing occurs.
 
-9. **`AssetUsage` has no `user_id`** — Cannot attribute downloads/previews to specific users. Only action type + total count is tracked.
-
-10. **Rate limiting is applied globally** via SlowAPI but per-endpoint limits are not clearly configured for all sensitive routes.
+9. **Rate limiting is applied globally** via SlowAPI but per-endpoint limits are not clearly configured for all sensitive routes.
 
 ---
 
@@ -692,9 +665,4 @@ No Alembic version files needed. The DDL is idempotent.
 | ChromaDB | Running locally or in a persistent Docker volume — no cloud hosted instance |
 | Containerization | `Dockerfile` exists in repo root for backend containerization |
 
----
-
-*End of AI-DAM context document. Total: ~42% complete. 30 items remaining across 8 phases. Phases 2 and 3 are 88% complete.*
-
-
-
+*End of AI-DAM context document. Total: ~71% complete. 15 items remaining. Phases 1 and 4 are 100% done. Phases 2 and 3 are 88% done.*

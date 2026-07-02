@@ -15,12 +15,12 @@ class AssetTypes(str, Enum):
 
     BANNER="banner"
     BROCHURE="brochure"
-    CASE_STUDY="case_study"
+    CASE_STUDY="case study"
     LOGO="logo"
-    SOCIAL_CREATIVE="social_creative"
-    PITCH_DECK="pitch_deck"
-    BRAND_GUIDLINE="brand_guideline"
-    CAMPAIGN_FILE="campaign_file"
+    SOCIAL_CREATIVE="social creative"
+    PITCH_DECK="pitch deck"
+    BRAND_GUIDLINE="brand guideline"
+    CAMPAIGN_FILE="campaign file"
     TESTIMONIAL="testimonial"
 
 class DomainType(str, Enum):
@@ -41,8 +41,8 @@ class UseCaseTypes(str, Enum):
     WEBSITE="website"
     CAMPAIGN="campaign"
     SALES="sales"
-    SOCIAL_MEDIA="social_media"
-    ADVERTISEMENT="advertisment"
+    SOCIAL_MEDIA="social media"
+    ADVERTISEMENT="advertisement"
 
 class AudienceType(str, Enum):
     B2B="b2b"
@@ -65,3 +65,11 @@ class ToneType(str, Enum):
     FRIENDLY="friendly"
     CREATIVE="creative"
 
+
+class UsageRightsType(str, Enum):
+    INTERNAL_ONLY  = "Internal Only"
+    LICENSED       = "Licensed"
+    PUBLIC_DOMAIN  = "Public Domain"
+    RESTRICTED     = "Restricted"
+    ROYALTY_FREE   = "Royalty Free"
+    CREATIVE_COMMONS = "Creative Commons"
