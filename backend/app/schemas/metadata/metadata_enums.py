@@ -13,6 +13,16 @@ class AssetTypes(str, Enum):
     PDF="pdf"
     DOCUMENT="document"
 
+    BANNER="banner"
+    BROCHURE="brochure"
+    CASE_STUDY="case_study"
+    LOGO="logo"
+    SOCIAL_CREATIVE="social_creative"
+    PITCH_DECK="pitch_deck"
+    BRAND_GUIDLINE="brand_guideline"
+    CAMPAIGN_FILE="campaign_file"
+    TESTIMONIAL="testimonial"
+
 class DomainType(str, Enum):
     AI="AI"
     STAFFING="Staffing"
