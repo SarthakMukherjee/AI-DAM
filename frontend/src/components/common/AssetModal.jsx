@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 
 import {
   Image,
@@ -10,6 +11,7 @@ import {
   X,
   Copy,
   GitBranch,
+  Eye,
 } from "lucide-react";
 
 import api from "../../api/axios";
@@ -24,6 +26,7 @@ const TYPE_ICON = {
 };
 
 const AssetModal = ({ asset, onClose, onDelete, showDelete }) => {
+  const navigate = useNavigate();
   const assetName =
     asset.asset_metadata?.mandatory?.asset_name || asset.original_filename;
 
@@ -297,6 +300,17 @@ const AssetModal = ({ asset, onClose, onDelete, showDelete }) => {
               >
                 <Download size={16} />
                 Download
+              </button>
+
+              <button
+                className="modal-btn modal-btn-secondary"
+                onClick={() => {
+                  onClose();
+                  navigate(`/assets/${asset.id}`);
+                }}
+              >
+                <Eye size={16} />
+                Full Details
               </button>
 
               {asset.mime_type === "application/pdf" && (

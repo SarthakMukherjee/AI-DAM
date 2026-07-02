@@ -36,13 +36,18 @@ _ASSET_COLUMNS: list[tuple[str, str]] = [
     ("updated_at",  "TIMESTAMP WITH TIME ZONE DEFAULT NOW()"),
 ]
 
+_USER_COLUMNS: list[tuple[str, str]] = [
+    ("allowed_domains",    "VARCHAR[]"),
+]
+
 
 def upgrade_db_schema() -> None:
     """
-    Idempotently add new columns to the `assets` table.
+    Idempotently add new columns to the `assets` and `users` tables.
     Safe to call on every startup — existing columns are never touched.
     """
     with engine.connect() as conn:
+        # Assets Table
         for col_name, col_type in _ASSET_COLUMNS:
             ddl = text(
                 f"ALTER TABLE assets "
@@ -52,7 +57,19 @@ def upgrade_db_schema() -> None:
                 conn.execute(ddl)
                 print(f"[MIGRATE] Column ensured: assets.{col_name}")
             except Exception as e:
-                print(f"[MIGRATE] Warning — {col_name}: {e}")
+                print(f"[MIGRATE] Warning — assets.{col_name}: {e}")
+
+        # Users Table
+        for col_name, col_type in _USER_COLUMNS:
+            ddl = text(
+                f"ALTER TABLE users "
+                f"ADD COLUMN IF NOT EXISTS {col_name} {col_type};"
+            )
+            try:
+                conn.execute(ddl)
+                print(f"[MIGRATE] Column ensured: users.{col_name}")
+            except Exception as e:
+                print(f"[MIGRATE] Warning — users.{col_name}: {e}")
 
         conn.commit()
 

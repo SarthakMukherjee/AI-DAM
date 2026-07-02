@@ -17,6 +17,7 @@ from app.models.user.notification_model import Notification
 from app.schemas.user.schemas import (
     UserResponse,
     UpdateRoleRequest,
+    UpdateDomainsRequest,
     NotificationResponse,
     TopAssetsResponse,
     AssetUsageResponse
@@ -66,17 +67,23 @@ def update_user_role(
     current_user: User = Depends(require_super_admin)
 ):
 
-    allowed_roles = [
+    ALLOWED_ROLES = [
         "super_admin",
         "admin",
         "reviewer",
+        "marketing_manager",
+        "designer",
+        "content_lead",
+        "sales_user",
+        "website_team",
+        "external_partner",
         "user"
     ]
 
-    if body.role not in allowed_roles:
+    if body.role not in ALLOWED_ROLES:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Role must be one of: {allowed_roles}"
+            detail=f"Role must be one of: {ALLOWED_ROLES}"
         )
 
     if user_id == current_user.id:
@@ -422,3 +429,43 @@ def asset_usage(
             for row in by_action
         }
     }
+
+
+# -----------------------------------
+# ASSIGN DOMAIN ACCESS TO USER
+# restricts which asset domains a user can see
+# super_admin only
+# -----------------------------------
+
+@router.patch(
+    "/users/{user_id}/domains",
+    response_model=UserResponse
+)
+def update_user_domains(
+    user_id: str,
+    body: UpdateDomainsRequest,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_super_admin)
+):
+    """
+    Assign domain-scoped access to a user.
+    If allowed_domains is empty, all domain restriction is removed.
+    """
+    user = (
+        db.query(User)
+        .filter(User.id == user_id)
+        .first()
+    )
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+
+    user.allowed_domains = body.allowed_domains if body.allowed_domains else None
+
+    db.commit()
+    db.refresh(user)
+
+    return user

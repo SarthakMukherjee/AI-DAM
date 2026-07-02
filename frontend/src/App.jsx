@@ -7,6 +7,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 
 import AssetBrowser from "./pages/user/AssetBrowser";
+import AssetDetail from "./pages/user/AssetDetail";
 
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import UploadAsset from "./pages/admin/UploadAsset";
@@ -43,6 +44,12 @@ const RootRedirect = () => {
     admin: "/admin",
     reviewer: "/reviewer",
     super_admin: "/super-admin",
+    marketing_manager: "/browse",
+    designer: "/browse",
+    content_lead: "/browse",
+    sales_user: "/browse",
+    website_team: "/browse",
+    external_partner: "/browse",
   };
 
   return <Navigate to={roleHome[user.role] || "/login"} replace />;
@@ -56,12 +63,22 @@ const AppRoutes = () => {
       <Route path="/register" element={<Register />} />
       <Route path="/" element={<RootRedirect />} />
 
-      {/* USER */}
+      {/* USER + CONTENT TEAM — Browse */}
       <Route
         path="/browse"
         element={
-          <RoleGuard allowedRoles={["user"]}>
+          <RoleGuard allowedRoles={["user", "sales_user", "external_partner", "marketing_manager", "designer", "content_lead", "website_team"]}>
             <AssetBrowser />
+          </RoleGuard>
+        }
+      />
+
+      {/* ASSET DETAIL — accessible to all authenticated roles */}
+      <Route
+        path="/assets/:assetId"
+        element={
+          <RoleGuard allowedRoles={["user", "admin", "reviewer", "super_admin", "sales_user", "external_partner", "marketing_manager", "designer", "content_lead", "website_team"]}>
+            <AssetDetail />
           </RoleGuard>
         }
       />

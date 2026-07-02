@@ -1,4 +1,5 @@
 import { Image, Video, FileText, Folder } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 import "../../styles/assetcard.css";
 import { API_BASE } from "../../api/axios";
@@ -13,6 +14,16 @@ const TYPE_ICON = {
   "application/pdf": <FileText size={18} className="asset-file-icon pdf" />,
 };
 
+const STATUS_CONFIG = {
+  approved:       { label: "Approved",    cls: "badge-success" },
+  published:      { label: "Published",   cls: "badge-published" },
+  draft:          { label: "Draft",       cls: "badge-warning" },
+  pending_review: { label: "In Review",   cls: "badge-info" },
+  rejected:       { label: "Rejected",    cls: "badge-danger" },
+  restricted:     { label: "Restricted",  cls: "badge-restricted" },
+  archived:       { label: "Archived",    cls: "badge-muted" },
+};
+
 const AssetCard = ({
   asset,
   onClick,
@@ -21,6 +32,7 @@ const AssetCard = ({
   keywordScore,
   searchMode,
 }) => {
+  const navigate = useNavigate();
   const icon = TYPE_ICON[asset.mime_type] || (
     <Folder size={18} className="asset-file-icon default" />
   );
@@ -37,6 +49,14 @@ const AssetCard = ({
   const assetType = asset.asset_metadata?.mandatory?.asset_type || "asset";
 
   const status = asset.status;
+  const statusCfg = STATUS_CONFIG[status] || { label: status, cls: "badge-warning" };
+
+  const hasAiEnrichment = !!(asset.asset_metadata?.ai_enrichment?.enrichment_status === "completed");
+
+  // Missing metadata: no description or no domain
+  const isMissingMeta =
+    !asset.asset_metadata?.mandatory?.description ||
+    !asset.asset_metadata?.business?.domain;
 
   const previewUrl = asset.thumbnail_path?.startsWith("http")
     ? asset.thumbnail_path
@@ -65,6 +85,18 @@ const AssetCard = ({
                 {searchMode === "hybrid" ? " hybrid" : " match"}
               </div>
             )}
+
+            {/* STATUS BADGE — always visible on front */}
+            <div className={`asset-status-badge badge ${statusCfg.cls}`}>
+              {statusCfg.label}
+            </div>
+
+            {/* MISSING METADATA WARNING */}
+            {isMissingMeta && (
+              <div className="asset-missing-meta" title="Missing metadata">
+                ⚠
+              </div>
+            )}
           </div>
 
           <div className="asset-card-front-info">
@@ -73,12 +105,19 @@ const AssetCard = ({
             <div className="asset-card-meta-row">
               <span className="asset-card-type">
                 {icon}
-
                 {assetType}
               </span>
 
               {asset.version > 1 && (
                 <span className="asset-version-chip">v{asset.version}</span>
+              )}
+
+              {hasAiEnrichment && (
+                <span className="asset-ai-chip">AI</span>
+              )}
+
+              {!asset.is_latest && (
+                <span className="asset-outdated-chip">Outdated</span>
               )}
             </div>
           </div>
@@ -136,7 +175,15 @@ const AssetCard = ({
               </div>
             )}
 
-            <button className="asset-card-btn">View Details →</button>
+            <button
+              className="asset-card-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/assets/${asset.id}`);
+              }}
+            >
+              View Details →
+            </button>
           </div>
         </div>
       </div>

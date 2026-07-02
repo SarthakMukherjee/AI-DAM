@@ -353,8 +353,6 @@
   gap: 0.7rem;
 }
 
-/* RESPONSIVE */
-
 @media (max-width: 768px) {
   .review-grid {
     grid-template-columns: 1fr;
@@ -363,4 +361,69 @@
   .review-header {
     padding: 1.2rem;
   }
+}
+
+/* PUBLISH BUTTON */
+.review-btn--publish {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.9rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease;
+}
+.review-btn--publish:hover {
+  background: rgba(16, 185, 129, 0.22);
+  border-color: rgba(16, 185, 129, 0.5);
+}
+
+/* RESTRICT BUTTON */
+.review-btn--restrict {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.9rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: rgba(239, 68, 68, 0.08);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.18);
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease;
+}
+.review-btn--restrict:hover {
+  background: rgba(239, 68, 68, 0.18);
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+/* REJECTION CATEGORY SELECT */
+.reject-select {
+  width: 100%;
+  margin-bottom: 0.5rem;
+  font-size: 0.82rem;
+}
+
+/* DANGER BUTTON */
+.review-btn--danger {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.9rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  cursor: pointer;
+}
+.review-btn--danger:hover {
+  background: rgba(239, 68, 68, 0.3);
 }

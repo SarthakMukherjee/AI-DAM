@@ -1,165 +1,76 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-
+﻿from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-
 from app.api.dependencies.database import get_db
-from app.api.dependencies.auth_dependency import (
-    require_reviewer
-)
-
+from app.api.dependencies.auth_dependency import require_reviewer
 from app.models.user.user_model import User
 from app.models.asset.asset_model import Asset
 from app.models.user.notification_model import Notification
+from app.schemas.user.schemas import ReviewRequest, PublishRequest, RestrictRequest
 
-from app.schemas.user.schemas import ReviewRequest
-
-
-router = APIRouter(
-    prefix="/reviewer",
-    tags=["Reviewer"]
-)
-
-
-# -----------------------------------
-# REVIEW QUEUE
-# all draft assets pending review
-# super_admin + reviewer
-# -----------------------------------
+router = APIRouter(prefix="/reviewer", tags=["Reviewer"])
 
 @router.get("/queue")
-def review_queue(
-    db: Session = Depends(get_db),
-    _: User = Depends(require_reviewer)
-):
-
-    return (
-        db.query(Asset)
-        .filter(Asset.status == "draft")
-        .order_by(Asset.created_at.asc())
-        .all()
-    )
-
-
-# -----------------------------------
-# APPROVE ASSET
-# super_admin + reviewer
-# sets status to "approved"
-# -----------------------------------
+def review_queue(db: Session = Depends(get_db), _: User = Depends(require_reviewer)):
+    return db.query(Asset).filter(Asset.status.in_(["draft", "pending_review"])).order_by(Asset.created_at.asc()).all()
 
 @router.post("/assets/{asset_id}/approve")
-def approve_asset(
-    asset_id: str,
-    db: Session = Depends(get_db),
-    _: User = Depends(require_reviewer)
-):
-
-    asset = (
-        db.query(Asset)
-        .filter(Asset.id == asset_id)
-        .first()
-    )
-
-    if not asset:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Asset not found"
-        )
-
-    if asset.status != "draft":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Asset is already {asset.status}"
-        )
-
+def approve_asset(asset_id: str, db: Session = Depends(get_db), _: User = Depends(require_reviewer)):
+    asset = db.query(Asset).filter(Asset.id == asset_id).first()
+    if not asset: raise HTTPException(status_code=404, detail="Asset not found")
+    if asset.status not in ["draft", "pending_review"]: raise HTTPException(status_code=400, detail=f"Asset is already {asset.status}")
     asset.status = "approved"
-
     db.commit()
-
-    return {
-        "message": "Asset approved",
-        "asset_id": asset_id
-    }
-
-
-# -----------------------------------
-# REJECT ASSET
-# super_admin + reviewer
-# sets status to "rejected"
-# notifies all admins + super_admin
-# reason is optional
-# -----------------------------------
+    return {"message": "Asset approved", "asset_id": asset_id}
 
 @router.post("/assets/{asset_id}/reject")
-def reject_asset(
-    asset_id: str,
-    body: ReviewRequest,
-    db: Session = Depends(get_db),
-    _: User = Depends(require_reviewer)
-):
-
-    asset = (
-        db.query(Asset)
-        .filter(Asset.id == asset_id)
-        .first()
-    )
-
-    if not asset:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Asset not found"
-        )
-
-    if asset.status != "draft":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Asset is already {asset.status}"
-        )
-
+def reject_asset(asset_id: str, body: ReviewRequest, db: Session = Depends(get_db), _: User = Depends(require_reviewer)):
+    asset = db.query(Asset).filter(Asset.id == asset_id).first()
+    if not asset: raise HTTPException(status_code=404, detail="Asset not found")
+    if asset.status not in ["draft", "pending_review", "approved"]: raise HTTPException(status_code=400, detail=f"Cannot reject: {asset.status}")
     asset.status = "rejected"
-
     db.commit()
-
-    # -----------------------------------
-    # NOTIFY ALL ADMINS + SUPER ADMINS
-    # -----------------------------------
-
-    recipients = (
-        db.query(User)
-        .filter(
-            User.role.in_(["admin", "super_admin"]),
-            User.is_active == True
-        )
-        .all()
-    )
-
-    asset_name = ""
-
-    try:
-        asset_name = (
-            asset.asset_metadata
-            .get("mandatory", {})
-            .get("asset_name", asset.original_filename)
-        )
-    except Exception:
-        asset_name = asset.original_filename
-
-    for recipient in recipients:
-
-        notification = Notification(
-            user_id=recipient.id,
-            asset_id=asset_id,
-            message=(
-                f"Asset '{asset_name}' was rejected by reviewer."
-            ),
-            reason=body.reason
-        )
-
-        db.add(notification)
-
+    recipients = db.query(User).filter(User.role.in_(["admin", "super_admin"]), User.is_active == True).all()
+    try: asset_name = asset.asset_metadata.get("mandatory", {}).get("asset_name", asset.original_filename)
+    except: asset_name = asset.original_filename
+    msg = f"Asset rejected: {asset_name}."
+    if body.rejection_category: msg += f" Category: {body.rejection_category}."
+    for r in recipients: db.add(Notification(user_id=r.id, asset_id=asset_id, message=msg, reason=body.reason))
     db.commit()
+    return {"message": "Asset rejected", "asset_id": asset_id, "rejection_category": body.rejection_category, "reason": body.reason}
 
-    return {
-        "message": "Asset rejected and admins notified",
-        "asset_id": asset_id,
-        "reason": body.reason
-    }
+@router.post("/assets/{asset_id}/publish")
+def publish_asset(asset_id: str, body: PublishRequest, db: Session = Depends(get_db), _: User = Depends(require_reviewer)):
+    asset = db.query(Asset).filter(Asset.id == asset_id).first()
+    if not asset: raise HTTPException(status_code=404, detail="Asset not found")
+    if asset.status != "approved": raise HTTPException(status_code=400, detail=f"Only approved assets can be published. Current: {asset.status}")
+    asset.status = "published"
+    if body.publish_note or body.published_channels:
+        meta = dict(asset.asset_metadata or {})
+        meta.setdefault("governance", {})
+        if body.publish_note: meta["governance"]["publish_note"] = body.publish_note
+        if body.published_channels: meta["governance"]["published_channels"] = body.published_channels
+        asset.asset_metadata = meta
+    db.commit()
+    return {"message": "Asset published", "asset_id": asset_id, "status": "published"}
+
+@router.post("/assets/{asset_id}/restrict")
+def restrict_asset(asset_id: str, body: RestrictRequest, db: Session = Depends(get_db), _: User = Depends(require_reviewer)):
+    asset = db.query(Asset).filter(Asset.id == asset_id).first()
+    if not asset: raise HTTPException(status_code=404, detail="Asset not found")
+    asset.status = "restricted"
+    meta = dict(asset.asset_metadata or {})
+    meta.setdefault("governance", {})
+    meta["governance"]["restriction_reason"] = body.reason or "Restricted by reviewer"
+    meta["governance"]["restricted_to_roles"] = body.restricted_to_roles or ["admin", "reviewer", "super_admin"]
+    asset.asset_metadata = meta
+    db.commit()
+    return {"message": "Asset restricted", "asset_id": asset_id, "status": "restricted", "reason": body.reason}
+
+@router.post("/assets/{asset_id}/unrestrict")
+def unrestrict_asset(asset_id: str, db: Session = Depends(get_db), _: User = Depends(require_reviewer)):
+    asset = db.query(Asset).filter(Asset.id == asset_id).first()
+    if not asset: raise HTTPException(status_code=404, detail="Asset not found")
+    if asset.status != "restricted": raise HTTPException(status_code=400, detail="Asset is not restricted")
+    asset.status = "approved"
+    db.commit()
+    return {"message": "Asset unrestricted. Status set to approved.", "asset_id": asset_id}

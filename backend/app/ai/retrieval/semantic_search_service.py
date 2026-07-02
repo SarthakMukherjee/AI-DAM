@@ -68,6 +68,8 @@ def _format_results(
     db: Session,
     limit: int,
     approved_only: bool = True,
+    filters: dict | None = None,
+    query: str | None = None,
 ):
 
     ids = raw.get("ids", [[]])[0]
@@ -76,71 +78,69 @@ def _format_results(
     if not ids:
         return []
 
-    asset_map = _fetch_assets_by_ids(
-        ids,
-        db
-    )
+    asset_map = _fetch_assets_by_ids(ids, db)
 
     formatted_results = []
 
     for asset_id, distance in zip(ids, distances):
 
         asset = asset_map.get(asset_id)
-
         if not asset:
             continue
 
-        # Only filter by approved status at the Python level
-        if approved_only and asset.status != "approved":
+        # Status filtering
+        if approved_only and asset.status not in ("approved", "published"):
             continue
 
-        score = _distance_to_score(distance)
+        # Post-filter: geography and status (can't be done in Chroma)
+        if filters:
+            meta = asset.asset_metadata or {}
+            biz = meta.get("business") or {}
 
+            if filters.get("geography") and filters["geography"].lower() not in (biz.get("geography") or "").lower():
+                continue
+
+            if filters.get("status") and asset.status != filters["status"]:
+                continue
+
+        score = _distance_to_score(distance)
         if score < MINIMUM_SIMILARITY_SCORE:
             continue
 
+        # Build match_explanation
+        match_explanation = None
+        if query:
+            meta = asset.asset_metadata or {}
+            ai = meta.get("ai_enrichment") or {}
+            tags = ai.get("ai_tags") or []
+            desc = (meta.get("mandatory") or {}).get("description") or ""
+            q_lower = query.lower()
+            reasons = []
+            if any(q_lower in str(t).lower() for t in tags):
+                reasons.append("matched AI tags")
+            if q_lower in desc.lower():
+                reasons.append("matched description")
+            if ai.get("image_caption") and q_lower in (ai["image_caption"] or "").lower():
+                reasons.append("matched AI caption")
+            match_explanation = " · ".join(reasons) if reasons else f"semantic similarity {round(score*100)}%"
+
         formatted_results.append({
-
-            "asset_id": str(asset.id),
-
-            "score": score,
-
-            "original_filename":
-                asset.original_filename,
-
-            "storage_path":
-                asset.storage_path,
-
-            "thumbnail_path":
-                asset.thumbnail_path,
-
-            "preview_path":
-                asset.preview_path,
-
-            "mime_type":
-                asset.mime_type,
-
-            "status":
-                asset.status,
-
-            "asset_metadata":
-                asset.asset_metadata or {},
-
-            "completeness_score":
-                asset.completeness_score or 0,
-
-            "ai_summary":
-                asset.ai_summary,
-
-            "perceptual_hash":
-                asset.perceptual_hash,
+            "asset_id":           str(asset.id),
+            "score":              score,
+            "original_filename":  asset.original_filename,
+            "storage_path":       asset.storage_path,
+            "thumbnail_path":     asset.thumbnail_path,
+            "preview_path":       asset.preview_path,
+            "mime_type":          asset.mime_type,
+            "status":             asset.status,
+            "asset_metadata":     asset.asset_metadata or {},
+            "completeness_score": asset.completeness_score or 0,
+            "ai_summary":         asset.ai_summary,
+            "perceptual_hash":    asset.perceptual_hash,
+            "match_explanation":  match_explanation,
         })
 
-    formatted_results.sort(
-        key=lambda x: x["score"],
-        reverse=True
-    )
-
+    formatted_results.sort(key=lambda x: x["score"], reverse=True)
     return formatted_results[:limit]
 
 
@@ -207,13 +207,14 @@ class SemanticSearchService:
     ):
 
         # QUERY → EMBEDDING
-        query_embedding = generate_embedding(
-            query
-        )
+        query_embedding = generate_embedding(query)
 
+        # ─────────────────────────────────────────────────────────
         # Build Chroma where-clause from facets
+        # Chroma supports: $eq, $ne, $gt, $gte, $lt, $lte, $and, $or
+        # We store domain, asset_type, language, campaign in metadata
+        # ─────────────────────────────────────────────────────────
         where = None
-
         if filters:
             chroma_filters = []
 
@@ -223,18 +224,19 @@ class SemanticSearchService:
             if filters.get("asset_type"):
                 chroma_filters.append({"asset_type": {"$eq": filters["asset_type"]}})
 
-            if chroma_filters:
-                if len(chroma_filters) == 1:
-                    where = chroma_filters[0]
-                else:
-                    where = {"$and": chroma_filters}
+            if filters.get("language"):
+                chroma_filters.append({"language": {"$eq": filters["language"]}})
 
-        raw = (
-            VectorQueryService.semantic_search(
-                query_embedding=query_embedding,
-                limit=limit,
-                where=where
-            )
+            if filters.get("campaign"):
+                chroma_filters.append({"campaign": {"$eq": filters["campaign"]}})
+
+            if chroma_filters:
+                where = chroma_filters[0] if len(chroma_filters) == 1 else {"$and": chroma_filters}
+
+        raw = VectorQueryService.semantic_search(
+            query_embedding=query_embedding,
+            limit=limit,
+            where=where,
         )
 
         return _format_results(
@@ -242,4 +244,6 @@ class SemanticSearchService:
             db=db,
             limit=limit,
             approved_only=approved_only,
-        )
+            filters=filters,
+            query=query,
+        )

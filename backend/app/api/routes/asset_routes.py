@@ -21,7 +21,8 @@ from slowapi.util import get_remote_address
 from app.api.dependencies.database import get_db
 from app.api.dependencies.auth_dependency import (
     get_current_user,
-    require_admin
+    require_admin,
+    require_upload_permission
 )
 from app.services.storage.asset_service import AssetService
 from app.models.asset.asset_model import Asset
@@ -161,17 +162,73 @@ def list_assets(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    if current_user.role == "user":
-        return (
-            db.query(Asset)
-            .filter(
-                Asset.status == "approved",
-                Asset.is_latest == True
-            )
-            .all()
+    # Roles that only see approved + latest assets
+    RESTRICTED_VIEW_ROLES = ["user", "sales_user", "external_partner"]
+
+    query = db.query(Asset)
+
+    if current_user.role in RESTRICTED_VIEW_ROLES:
+        query = query.filter(
+            Asset.status == "approved",
+            Asset.is_latest == True,
+            Asset.is_archived == False
+        )
+    else:
+        # All other content team / admin roles see everything
+        query = query.filter(Asset.is_archived == False)
+
+    # Domain-scoped access: if user has domain restriction, filter assets
+    if current_user.allowed_domains:
+      # Filter by business.domain inside JSONB
+      domain_filter = Asset.asset_metadata[
+        "business"
+      ]["domain"].as_string().in_(current_user.allowed_domains)
+      query = query.filter(domain_filter)
+
+    return query.all()
+
+
+# -----------------------------------
+# SUBMIT FOR REVIEW — content team
+# moves asset from draft to pending_review
+# -----------------------------------
+
+@router.patch("/{asset_id}/submit-for-review")
+def submit_for_review(
+    asset_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    SUBMIT_ROLES = [
+        "super_admin", "admin",
+        "marketing_manager", "designer", "content_lead", "website_team"
+    ]
+
+    if current_user.role not in SUBMIT_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to submit assets for review"
         )
 
-    return db.query(Asset).all()
+    asset = db.query(Asset).filter(Asset.id == asset_id).first()
+
+    if not asset:
+        raise HTTPException(status_code=404, detail="Asset not found")
+
+    if asset.status not in ["draft", "rejected"]:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot submit for review. Current status: {asset.status}"
+        )
+
+    asset.status = "pending_review"
+    db.commit()
+
+    return {
+        "message": "Asset submitted for review",
+        "asset_id": asset_id,
+        "status": "pending_review"
+    }
 
 
 # -----------------------------------
@@ -488,6 +545,85 @@ def retire_asset(
 
 
 # -----------------------------------
+# GET VERSION HISTORY
+# -----------------------------------
+@router.get("/{asset_id}/versions")
+def get_asset_versions(
+    asset_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    from sqlalchemy import or_
+    asset = db.query(Asset).filter(Asset.id == asset_id).first()
+    if not asset:
+        raise HTTPException(status_code=404, detail="Asset not found")
+
+    root_id = asset.root_asset_id or asset.id
+
+    versions = (
+        db.query(Asset)
+        .filter(
+            or_(
+                Asset.root_asset_id == root_id,
+                Asset.id == root_id
+            )
+        )
+        .order_by(Asset.version.desc())
+        .all()
+    )
+    return versions
+
+
+# -----------------------------------
+# GET VISUALLY SIMILAR ASSETS
+# -----------------------------------
+@router.get("/{asset_id}/similar")
+def get_similar_assets(
+    asset_id: str,
+    threshold: int = NEAR_DUPLICATE_THRESHOLD_DISTANCE,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    asset = db.query(Asset).filter(Asset.id == asset_id).first()
+    if not asset:
+        raise HTTPException(status_code=404, detail="Asset not found")
+
+    if not asset.perceptual_hash or not (asset.mime_type and asset.mime_type.startswith("image/")):
+        return []
+
+    other_images = (
+        db.query(Asset)
+        .filter(
+            Asset.id != asset_id,
+            Asset.perceptual_hash != None,
+            Asset.mime_type.ilike("image/%")
+        )
+        .all()
+    )
+
+    similar = []
+    for candidate in other_images:
+        dist = hamming_distance(asset.perceptual_hash, candidate.perceptual_hash)
+        if dist <= threshold:
+            similar.append({
+                "id": str(candidate.id),
+                "original_filename": candidate.original_filename,
+                "thumbnail_path": candidate.thumbnail_path,
+                "preview_path": candidate.preview_path,
+                "storage_path": candidate.storage_path,
+                "status": candidate.status,
+                "version": candidate.version,
+                "mime_type": candidate.mime_type,
+                "asset_metadata": candidate.asset_metadata or {},
+                "similarity": similarity_score(asset.perceptual_hash, candidate.perceptual_hash),
+                "distance": dist
+            })
+
+    similar.sort(key=lambda x: x["distance"])
+    return similar
+
+
+# -----------------------------------
 # DUPLICATE CANDIDATES
 # GET /assets/duplicate-candidates
 # Admin only
@@ -561,3 +697,47 @@ def duplicate_candidates(
         "hamming_threshold": threshold,
         "duplicate_groups":  groups,
     }
+
+
+# -----------------------------------
+# GET SINGLE ASSET
+# IMPORTANT: This catch-all route MUST be last
+# so it does not intercept named routes like
+# /duplicate-candidates
+# -----------------------------------
+
+@router.get("/{asset_id}")
+def get_asset(
+    asset_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    asset = db.query(Asset).filter(Asset.id == asset_id).first()
+    if not asset:
+        raise HTTPException(status_code=404, detail="Asset not found")
+
+    # Access control for restricted view roles
+    RESTRICTED_VIEW_ROLES = ["user", "sales_user", "external_partner"]
+    if current_user.role in RESTRICTED_VIEW_ROLES:
+        if asset.status != "approved" or asset.is_archived:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to view this asset"
+            )
+
+    # Domain-scoped access control
+    if current_user.allowed_domains:
+        try:
+            asset_domain = asset.asset_metadata.get("business", {}).get("domain")
+            if asset_domain not in current_user.allowed_domains:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You do not have permission to access assets in this domain"
+                )
+        except Exception:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Failed to verify asset domain scope"
+            )
+
+    return asset

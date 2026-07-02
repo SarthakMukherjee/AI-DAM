@@ -33,6 +33,7 @@ class UserResponse(BaseModel):
     full_name: str
     role: str
     is_active: bool
+    allowed_domains: list[str] | None = None
     created_at: datetime
 
     class Config:
@@ -40,7 +41,11 @@ class UserResponse(BaseModel):
 
 
 class UpdateRoleRequest(BaseModel):
-    role: str  # admin / reviewer / user
+    role: str  # admin / reviewer / user / marketing_manager / etc.
+
+
+class UpdateDomainsRequest(BaseModel):
+    allowed_domains: list[str]  # e.g. ["Healthcare", "Finance"]
 
 
 # -----------------------------------
@@ -49,6 +54,18 @@ class UpdateRoleRequest(BaseModel):
 
 class ReviewRequest(BaseModel):
     reason: Optional[str] = None
+    rejection_category: Optional[str] = None
+    # rejection_category values: "quality", "brand", "legal", "outdated", "wrong_format", "other"
+
+
+class PublishRequest(BaseModel):
+    publish_note: Optional[str] = None
+    published_channels: Optional[list[str]] = None  # e.g. ["web", "email"]
+
+
+class RestrictRequest(BaseModel):
+    reason: Optional[str] = None
+    restricted_to_roles: Optional[list[str]] = None  # e.g. ["admin", "reviewer"]
 
 
 # -----------------------------------

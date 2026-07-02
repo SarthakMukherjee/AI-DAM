@@ -456,3 +456,88 @@
 
   opacity: 0.95;
 }
+
+/* -----------------------------------
+   STATUS BADGE ON CARD FACE
+   always visible, top-left corner of thumb
+----------------------------------- */
+
+.asset-status-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 999px;
+  backdrop-filter: blur(6px);
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* -----------------------------------
+   MISSING METADATA WARNING
+   top-right corner
+----------------------------------- */
+
+.asset-missing-meta {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(245, 158, 11, 0.9);
+  color: #1a1a1a;
+  font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  cursor: help;
+  z-index: 5;
+}
+
+/* -----------------------------------
+   AI + OUTDATED CHIPS
+----------------------------------- */
+
+.asset-ai-chip {
+  font-size: 0.62rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: linear-gradient(135deg, rgba(99,102,241,0.25), rgba(168,85,247,0.25));
+  color: #a78bfa;
+  border: 1px solid rgba(99,102,241,0.3);
+  letter-spacing: 0.03em;
+}
+
+.asset-outdated-chip {
+  font-size: 0.62rem;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(239,68,68,0.12);
+  color: var(--danger);
+  border: 1px solid rgba(239,68,68,0.2);
+}
+
+/* -----------------------------------
+   EXTRA BADGE VARIANTS
+----------------------------------- */
+
+.badge-published {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+}
+
+.badge-restricted {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+}
+
+.badge-muted {
+  background: rgba(96, 96, 96, 0.2);
+  color: var(--text-muted);
+}
