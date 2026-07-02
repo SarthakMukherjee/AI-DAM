@@ -137,6 +137,7 @@ class KeywordSearchService:
         base_query = (
             db.query(Asset)
             .filter(Asset.is_latest == True)
+            .filter(Asset.is_archived == False)
         )
 
         if approved_only:

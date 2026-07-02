@@ -8,7 +8,7 @@ Uses `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` so it is safe to re-run
 on every boot — already-existing columns are silently skipped.
 
 This replaces a full Alembic migration for the columns added in the
-AI Retrieval / Search Quality / Version Control feature gap phase.
+AI Retrieval / Search Quality / Version Control / Archive feature gap phases.
 """
 
 from sqlalchemy import text
@@ -34,6 +34,10 @@ _ASSET_COLUMNS: list[tuple[str, str]] = [
     ("changelog",   "TEXT"),
     ("updated_by",  "VARCHAR"),
     ("updated_at",  "TIMESTAMP WITH TIME ZONE DEFAULT NOW()"),
+
+    # Archive — Phase 3.2 / 3.5
+    ("archived_at",     "TIMESTAMP WITH TIME ZONE"),
+    ("archive_reason",  "TEXT"),
 ]
 
 _USER_COLUMNS: list[tuple[str, str]] = [

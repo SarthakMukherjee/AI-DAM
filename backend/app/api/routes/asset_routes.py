@@ -545,6 +545,48 @@ def retire_asset(
 
 
 # -----------------------------------
+# ARCHIVE ASSET
+# PATCH /assets/{asset_id}/archive
+# Admin only
+# -----------------------------------
+
+@router.patch("/{asset_id}/archive")
+def archive_asset(
+    asset_id: str,
+    reason: str = Form(None),
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    """
+    Permanently archive an asset.
+    - Sets is_archived = True
+    - Records archived_at timestamp
+    - Stores optional archive_reason
+    - Asset is hidden from all default listing and search results
+    """
+    from datetime import datetime, timezone
+
+    asset = db.query(Asset).filter(Asset.id == asset_id).first()
+    if not asset:
+        raise HTTPException(status_code=404, detail="Asset not found")
+
+    if asset.is_archived:
+        raise HTTPException(status_code=400, detail="Asset is already archived")
+
+    asset.is_archived = True
+    asset.archived_at = datetime.now(timezone.utc)
+    asset.archive_reason = reason or ""
+    db.commit()
+
+    return {
+        "message":      f"Asset {asset_id} has been archived",
+        "asset_id":     asset_id,
+        "archived_at":  asset.archived_at.isoformat(),
+        "archive_reason": asset.archive_reason,
+    }
+
+
+# -----------------------------------
 # GET VERSION HISTORY
 # -----------------------------------
 @router.get("/{asset_id}/versions")

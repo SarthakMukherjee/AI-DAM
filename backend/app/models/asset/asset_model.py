@@ -50,6 +50,8 @@ class Asset(Base):
 
     # ARCHIVAL
     is_archived = Column(Boolean, default=False)
+    archived_at = Column(DateTime(timezone=True), nullable=True)
+    archive_reason = Column(Text, nullable=True)
 
     # -------------------------------------------------------
     # AI RETRIEVAL — queryable individual columns

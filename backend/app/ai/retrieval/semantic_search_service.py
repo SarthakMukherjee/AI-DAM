@@ -92,6 +92,10 @@ def _format_results(
         if approved_only and asset.status not in ("approved", "published"):
             continue
 
+        # Skip archived assets — hidden from all search results
+        if asset.is_archived:
+            continue
+
         # Post-filter: geography and status (can't be done in Chroma)
         if filters:
             meta = asset.asset_metadata or {}

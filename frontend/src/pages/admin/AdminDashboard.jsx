@@ -266,6 +266,10 @@ const AdminDashboard = () => {
           asset={selectedAsset}
           onClose={() => setSelectedAsset(null)}
           onDelete={() => handleDelete(selectedAsset.id)}
+          onArchive={(id) => {
+            setAssets((prev) => prev.filter((a) => a.id !== id));
+            setSelectedAsset(null);
+          }}
           showDelete
         />
       )}

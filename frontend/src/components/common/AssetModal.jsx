@@ -12,6 +12,7 @@ import {
   Copy,
   GitBranch,
   Eye,
+  Archive,
 } from "lucide-react";
 
 import api from "../../api/axios";
@@ -25,7 +26,7 @@ const TYPE_ICON = {
   "application/pdf": <FileText size={22} className="modal-file-icon pdf" />,
 };
 
-const AssetModal = ({ asset, onClose, onDelete, showDelete }) => {
+const AssetModal = ({ asset, onClose, onDelete, onArchive, showDelete }) => {
   const navigate = useNavigate();
   const assetName =
     asset.asset_metadata?.mandatory?.asset_name || asset.original_filename;
@@ -103,6 +104,21 @@ const AssetModal = ({ asset, onClose, onDelete, showDelete }) => {
     } catch (err) {
       console.error(err);
       alert("Download failed. Please try again.");
+    }
+  };
+
+  const handleArchive = async () => {
+    const reason = window.prompt("Archive reason (optional):") ?? "";
+    if (reason === null) return;
+    try {
+      const formData = new FormData();
+      if (reason) formData.append("reason", reason);
+      await api.patch(`/assets/${asset.id}/archive`, formData);
+      alert("Asset archived successfully.");
+      onClose();
+      if (onArchive) onArchive(asset.id);
+    } catch (err) {
+      alert(err?.response?.data?.detail || "Archive failed. Please try again.");
     }
   };
 
@@ -331,6 +347,17 @@ const AssetModal = ({ asset, onClose, onDelete, showDelete }) => {
                 >
                   <Trash2 size={16} />
                   Delete
+                </button>
+              )}
+
+              {showDelete && !asset.is_archived && (
+                <button
+                  className="modal-btn modal-btn-archive"
+                  onClick={handleArchive}
+                  title="Archive this asset"
+                >
+                  <Archive size={16} />
+                  Archive
                 </button>
               )}
             </div>
