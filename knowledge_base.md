@@ -95,16 +95,267 @@ Choose ONE feature from below when instructed by the user and execute all specif
 
 ---
 
-### FEATURE 2.4: Duplicate Merge/Replace Workflow
-* **Objective:** Allow admins to resolve near-duplicate assets by designating one canonical asset, transferring usage counts/tags, and retiring or deleting the duplicate.
-* **Database / Schema:**
-  * No new tables required. Uses existing `assets` table (`is_latest`, `status`, `parent_id`).
-  * Pydantic Schema: Create `DuplicateResolveRequest` with `canonical_asset_id: str`, `duplicate_asset_id: str`, `action: Literal['retire', 'delete']`, and `merge_metadata: bool`.
-* **Backend API:**
-  * Route: `POST /assets/resolve-duplicate` (Admin only).
-  * Logic: If `merge_metadata` is true, merge `keywords` and `ai_tags` from the duplicate into the canonical asset's JSONB metadata and re-index canonical asset in ChromaDB. Execute `retire` or `delete` on `duplicate_asset_id`.
-* **Frontend UI:**
-  * Update `frontend/src/pages/admin/AdminDashboard.jsx` inside the "Duplicates Scan" tab. Add a "Resolve / Merge" button on duplicate pair cards opening a confirmation modal.
+### FEATURE 2.4: Duplicate Merge / Replace Workflow
+
+**Status:** 🟡 Backend Completed (2.4.1–2.4.4) | Frontend Pending (2.4.5)
+
+#### Objective
+Allow administrators to resolve visually similar or duplicate assets by selecting one canonical asset, optionally merging useful metadata from the duplicate, synchronizing semantic search, and retiring or permanently deleting the duplicate asset.
+
+This workflow improves metadata quality, eliminates redundant assets, and keeps PostgreSQL and ChromaDB fully synchronized.
+
+#### IMPLEMENTATION STATUS
+
+**✅ Phase 2.4.1 — Duplicate Merge Service (Completed)**
+
+Implemented:
+
+```
+backend/app/services/storage/duplicate_merge_service.py
+```
+
+Responsibilities:
+* Validate canonical and duplicate asset IDs.
+* Prevent self-resolution.
+* Merge duplicate metadata into canonical asset.
+* Merge AI enrichment metadata.
+* Update SQL queryable fields.
+* Execute retire or delete workflow.
+* Commit database transaction.
+* Return updated canonical asset.
+
+Metadata merged:
+* `content.keywords`
+* `ai_enrichment.ai_tags`
+* `ai_enrichment.searchable_tags`
+* `ai_enrichment.detected_objects`
+
+Queryable SQL fields updated:
+* `ai_tags`
+* `detected_objects`
+
+The service removes duplicate values while preserving insertion order.
+
+**✅ Phase 2.4.2 — API Schemas (Completed)**
+
+Implemented in:
+
+```
+backend/app/schemas/asset_schema.py
+```
+
+Added:
+
+```python
+DuplicateResolveRequest
+
+canonical_asset_id: str
+duplicate_asset_id: str
+action: Literal["retire", "delete"]
+merge_metadata: bool = True
+```
+
+Added:
+
+```python
+DuplicateResolveResponse
+
+success: bool
+message: str
+canonical_asset_id: str
+duplicate_asset_id: str
+action: str
+metadata_merged: bool
+```
+
+No breaking changes were introduced to existing schemas.
+
+**✅ Phase 2.4.3 — Backend API (Completed)**
+
+Implemented endpoint:
+
+```
+POST /assets/resolve-duplicate
+```
+
+Location:
+
+```
+backend/app/api/routes/assets_routes.py
+```
+
+Security:
+* Admin only.
+* Protected through existing RBAC dependency.
+
+Workflow:
+1. Validate request.
+2. Call `DuplicateMergeService`.
+3. Return typed response.
+
+Business logic remains inside the service layer to maintain architecture consistency.
+
+**✅ Phase 2.4.4 — Chroma Synchronization (Completed)**
+
+Added:
+
+```
+backend/app/ai/vectorstore/vector_delete_service.py
+```
+
+Purpose: Delete vectors from ChromaDB whenever duplicate assets are permanently removed.
+
+Integrated into `DuplicateMergeService`.
+
+Workflow:
+
+```
+Merge Metadata
+        ↓
+Commit PostgreSQL
+        ↓
+Re-index Canonical Asset
+        ↓
+Delete Duplicate Vector (Delete only)
+        ↓
+Return Updated Canonical Asset
+```
+
+Synchronization rules:
+
+*Retire:*
+* Duplicate remains in PostgreSQL.
+* Duplicate vector remains.
+* Existing semantic search filters prevent retired assets from appearing.
+
+*Delete:*
+* Duplicate removed from PostgreSQL.
+* Duplicate vector removed from ChromaDB.
+* Canonical asset re-indexed with merged metadata.
+
+No orphan vectors remain after permanent deletion.
+
+#### Current Backend Architecture
+
+```
+DuplicateMergeService
+        │
+        ├── Merge metadata
+        ├── Merge AI tags
+        ├── Merge detected objects
+        ├── Merge searchable tags
+        ├── Update SQL metadata
+        │
+        ▼
+Commit PostgreSQL
+        │
+        ▼
+SemanticSearchService.reindex_asset()
+        │
+        ▼
+VectorUpsertService
+        │
+        ▼
+ChromaDB
+```
+
+Delete workflow additionally executes:
+
+```
+VectorDeleteService
+        │
+        ▼
+Remove duplicate vector
+```
+
+#### Pending Frontend Work
+
+**⏳ Phase 2.4.5 — Duplicate Resolution UI**
+
+Status: Not yet implemented.
+
+Location:
+
+```
+frontend/src/pages/admin/AdminDashboard.jsx
+```
+
+Current UI:
+
+```
+View Details
+Retire
+Delete
+```
+
+Target UI:
+
+```
+Resolve Duplicate
+        ↓
+Choose Canonical Asset
+        ↓
+Merge Metadata
+        ↓
+Retire OR Delete
+        ↓
+Resolve
+```
+
+Implementation tasks:
+
+*Phase 2.4.5.1* — Update React logic. Add:
+* Resolve modal state.
+* Canonical asset selection state.
+* Action selection state.
+* Metadata merge toggle.
+* Resolve API handler.
+* Duplicate refresh after completion.
+
+*Phase 2.4.5.2* — Build enterprise Resolve Duplicate modal.
+
+Modal includes:
+* Duplicate asset summary.
+* Radio selection for canonical asset.
+* Merge metadata checkbox.
+* Action selection: Retire Duplicate / Delete Duplicate.
+* Cancel button.
+* Resolve button.
+
+The modal submits: `POST /assets/resolve-duplicate`
+
+*Phase 2.4.5.3* — Update:
+
+```
+frontend/src/styles/admindashboard.css
+```
+
+Add styling for:
+* Resolve modal.
+* Canonical asset selector.
+* Radio group.
+* Metadata checkbox.
+* Resolve button.
+* Responsive layout.
+
+#### Verification Checklist
+
+Backend completed:
+* ✅ Duplicate metadata merging.
+* ✅ AI tag merging.
+* ✅ Searchable tag merging.
+* ✅ SQL metadata synchronization.
+* ✅ PostgreSQL synchronization.
+* ✅ ChromaDB synchronization.
+* ✅ Vector deletion.
+* ✅ Admin RBAC.
+* ✅ Backward compatibility.
+
+Frontend pending:
+* ⏳ Resolve Duplicate modal.
+* ⏳ Canonical asset selection.
+* ⏳ Resolve API integration.
+* ⏳ Updated duplicate management UI.
 
 ---
 

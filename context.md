@@ -56,7 +56,7 @@ AI-DAM/
 │   └── app/
 │       ├── main.py                           # FastAPI entry, router registration, CORS, rate limiting
 │       ├── api/routes/
-│       │   ├── asset_routes.py               # Upload, list, detail, submit-for-review, retire, similar, duplicate-candidates
+│       │   ├── asset_routes.py               # Upload, list, detail, submit-for-review, retire, similar, duplicate-candidates, duplicate merge/resolve
 │       │   ├── auth_routes.py                # Register, login, logout, /me
 │       │   ├── admin_routes.py               # Admin asset management, analytics, notifications
 │       │   ├── reviewer_routes.py            # Approve, reject, publish, restrict, unrestrict
@@ -75,7 +75,8 @@ AI-DAM/
 │       │   ├── user/schemas.py               # Auth, Review, Publish, Restrict, Notification Pydantic schemas
 │       │   └── search_schema.py              # SearchFilters, SemanticSearchRequest, HybridSearchRequest + results
 │       ├── services/storage/
-│       │   └── asset_service.py              # Core upload pipeline: hash, local/cloud storage backend, AI enrichment, completeness
+|       |   ├── asset_service.py              # Core upload pipeline: hash, local/cloud storage  backend, AI enrichment, completeness
+│       │   └── duplicate_merge_service.py    # Core upload pipeline: hash, local/cloud storage backend, AI enrichment, completeness
 │       ├── ai/
 │       │   ├── embeddings/                   # Sentence transformer embedding pipeline
 │       │   ├── ocr/                          # Tesseract OCR
@@ -295,6 +296,7 @@ Implemented in `backend/app/utils/completeness.py`.
 | GET | `/assets/{id}/versions` | Full version history for an asset tree |
 | GET | `/assets/{id}/similar` | Find visually similar assets via perceptual hash (dHash) |
 | GET | `/assets/duplicate-candidates` | Scan all assets for near-duplicate pairs |
+| POST | `/assets/resolve-duplicate` | Merge duplicate asset into canonical asset and retire/delete duplicate (Admin only)
 | GET | `/assets/{id}/download` | Download asset file |
 | DELETE | `/assets/{id}` | Delete asset (admin+ only) |
 
@@ -379,6 +381,7 @@ pending_review
   - e.g. `search_field="campaign"` searches only within campaign values
 - **Match explanation**: Every result includes `match_explanation` string
 - **Result schema includes**: `completeness_score`, `ai_summary`, `perceptual_hash`, `match_explanation`
+- Duplicate merge workflow is fully integrated with semantic search. Whenever duplicate metadata is merged into the canonical asset, the canonical asset is immediately re-indexed in ChromaDB through SemanticSearchService.reindex_asset(), ensuring semantic search results always reflect the latest merged metadata without requiring manual re-indexing.
 
 ---
 
@@ -395,7 +398,7 @@ pending_review
    - Auto-tagging -> `ai_tags`
    - LLM summary -> `ai_summary`
 6. **Completeness score** — calculated from 13 weighted metadata fields -> `completeness_score` (0-100)
-7. **ChromaDB indexing** — asset embedded and inserted into vector store for semantic search
+7. **ChromaDB indexing** — asset embedded and inserted into vector store for semantic search. The same indexing pipeline is also executed whenever duplicate assets are merged so that transferred AI tags, keywords and metadata immediately become searchable.
 
 > IMPORTANT: No background job queue (no Celery/Redis). All AI steps run synchronously at upload time.
 > Large files will cause slow upload responses.
@@ -468,6 +471,7 @@ pending_review
 | 25 | Asset Detail full page (not just modal) | `AssetDetail.jsx` — versions, completeness score, AI enrichment |
 | 26 | Role-based view restriction in list endpoint | `asset_routes.py` L166-188 restricted roles see approved/latest only |
 | 27 | `require_upload_permission` role gate | `auth_dependency.py` |
+| 28 | `Duplicate Merge / Replace backend workflow` | `duplicate_merge_service.py`, `DuplicateResolveRequest`, `POST /assets/resolve/resolve-duplicate`, automatic ChromaDB re-indexing |
 
 ---
 
@@ -496,7 +500,7 @@ pending_review
 | 2.1 | `status` filter in faceted search UI | DONE | `AssetBrowser.jsx` L392-404 — full STATUS_OPTIONS dropdown wired to filter state + search |
 | 2.2 | Saved / recent searches | DONE | `AssetBrowser.jsx` L44-73 — localStorage `dam_recent_searches`, max 5, clear-all button |
 | 2.3 | Duplicate candidate UI | DONE | `AdminDashboard.jsx` — "Duplicates Scan" tab with group cards, perceptual hash display, Retire + Delete per asset |
-| 2.4 | Merge/replace workflow for duplicates | NOT BUILT | No API or UI to merge two assets into one canonical record — out of scope for now |
+| 2.4 | Merge/replace workflow for duplicates | PARTIALLY COMPLETE | Backend completed. Admin API, metadata merge, canonical asset update, duplicate retire/delete, and ChromaDB re-indexing implemented. Frontend Admin Dashboard integration (Resolve/Merge modal) pending. |
 
 ---
 
@@ -575,14 +579,14 @@ pending_review
 | Phase | Description | Total Items | Done | Remaining | % Done |
 |---|---|:---:|:---:|:---:|:---:|
 | **1** | Foundation Fixes | 12 | 12 | 0 | **100%** |
-| **2** | Search & Discovery | 8 | 7 | 1 | 88% |
+| **2** | Search & Discovery | 8 | 7.5 | 0.5 | ~94% |
 | **3** | Version Control & Workflow | 8 | 7 | 1 | 88% |
 | **4** | Role & Permission Expansion | 6 | 6 | 0 | **100%** |
 | **5** | Audit Trail & Reporting | 8 | 0 | 8 | 0% |
 | **6** | Smart Upload & Asset-Type Awareness | 4 | 0 | 4 | 0% |
 | **7** | Website & Marketing Context | 3 | 0 | 3 | 0% |
 | **8** | Integration Layer | 3 | 0 | 3 | 0% |
-| | **TOTAL** | **52** | **37** | **15** | **~71%** |
+| | **TOTAL** | **52** | **37.5** | **14.5** | **~72%** |
 
 ---
 
@@ -594,7 +598,7 @@ pending_review
 |---|---|---|---|
 | 1 | 5.1-5.3 | Build `AuditLog` model + API + UI | Compliance foundation — needed before scaling users |
 | 2 | Phase 6 | Adaptive upload wizard | Types enum is ready, UX improvement |
-| 3 | 2.4 | Merge/replace duplicate workflow | Complete Phase 2 to 100% |
+| 3 | 2.4 Frontend | Admin Dashboard merge/resolve UI | Backend completed; only frontend integration remains |
 
 ### LOWER PRIORITY — Later
 
@@ -645,7 +649,7 @@ No Alembic version files needed. The DDL is idempotent.
 
 7. **No test suite** — No unit tests, integration tests, or end-to-end tests exist anywhere in the codebase.
 
-8. **ChromaDB and PostgreSQL can desync on update** — If metadata is edited in PostgreSQL, ChromaDB is not automatically re-indexed or updated. Search results can show outdated metadata until re-indexing occurs.
+8. **ChromaDB and PostgreSQL can desync on update** — 8. Most metadata edits still require manual re-indexing. Duplicate Merge workflow already performs automatic ChromaDB re-indexing after metadata transfer, but ordinary metadata edit endpoints are not yet synchronized automatically.
 
 9. **Rate limiting is applied globally** via SlowAPI but per-endpoint limits are not clearly configured for all sensitive routes.
 
