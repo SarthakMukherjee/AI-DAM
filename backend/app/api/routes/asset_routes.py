@@ -38,7 +38,13 @@ from app.utils.image_hash import (
     NEAR_DUPLICATE_THRESHOLD_DISTANCE,
     VISUAL_SIMILARITY_MIN_SCORE,
 )
-
+from app.schemas.asset_schema import (
+    DuplicateResolveRequest,
+    DuplicateResolveResponse
+)
+from app.services.storage.duplicate_merge_service import (
+    DuplicateMergeService
+)
 
 limiter = Limiter(key_func=get_remote_address)
 
@@ -772,6 +778,57 @@ def duplicate_candidates(
         "duplicate_groups":  groups,
     }
 
+# -----------------------------------
+# DUPLICATE MERGE / REPLACE
+# POST / assets/resolve-duplicate
+# Admin only
+# -----------------------------------
+
+@router.post(
+        "/resolve-duplicate",
+        response_model=DuplicateResolveResponse
+)
+
+def resolve_duplicate_asset(
+    request:DuplicateResolveRequest,
+    db:Session=Depends(get_db),
+    _:User=Depends(require_admin)
+):
+    """
+    Resolve a duplicate asset by merging its metadata into
+    a canonical asset and then retiring or deleting the
+    duplicate asset.
+
+    Workflow
+    --------
+    1. Validate assets
+    2. Merge metadata (optional)
+    3. Retire OR Delete duplicate
+    4. Return workflow summary
+
+    NOTE:
+    ChromaDB synchronization is added in Phase 2.4.4.
+    """
+
+    DuplicateMergeService.resolve(
+        db=db,
+        canonical_asset_id=request.canonical_asset_id,
+        duplicate_asset_id=request.duplicate_asset_id,
+        action=request.action,
+        merge_metadata=request.merge_metadata
+    )
+
+    return DuplicateResolveResponse(
+        success=True,
+        message=(
+            f"Duplicate asset successfully "
+            f"{'retired' if request.action == 'retire' else 'deleted'}."
+        ),
+        canonical_asset_id=request.canonical_asset_id,
+        duplicate_asset_id=request.duplicate_asset_id,
+        action=request.action,
+        metadata_merged=request.merge_metadata,
+    )
 
 # -----------------------------------
 # GET SINGLE ASSET

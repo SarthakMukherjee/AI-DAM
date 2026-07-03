@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Literal
 
 class AssetCreateSchema(BaseModel):
     asset_metadata: Optional[dict] = None
@@ -37,3 +37,44 @@ class AssetResponse(BaseModel):
 
     class Config: 
         from_attributes = True
+
+    
+    # Duplicate Merge/Replace Workflow
+class DuplicateResolveRequest(BaseModel):
+    """
+    Request payload for resolving duplicate assets.
+    
+    canonical_asset_id
+        Asset that should be kept
+
+    duplicate_asset_id
+        Asset that should be retired/deleted.
+    
+    action
+        retire -> Soft delete
+        delete -> permanent delete
+
+    merge_metadata 
+        Merge AI metadata and business metadata into the canonical asset before movig the duplicate.
+    """
+
+    canonical_asset_id:str
+    duplicate_asset_id:str
+
+    action: Literal[
+        "retire",
+        "delete"
+    ]
+
+    merge_metadata: bool=True
+
+class DuplicateResolvseResponse(BaseModel):
+    """
+    Response after duplicate resolution.
+    """
+    success:bool
+    message:str
+    canonical_asset_id:str
+    duplicate_asset_id:str
+    action:str
+    metadata_merged:bool
