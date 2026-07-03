@@ -1,8 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Trash2, ShieldAlert, FileText, Eye, RefreshCw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import api, { API_BASE } from "../../api/axios";
-import Layout from "../../components/common/layout";
+import Layout from "../../components/common/Layout";
 import AssetCard from "../../components/common/AssetCard";
 import AssetModal from "../../components/common/AssetModal";
 import "../../styles/admindashboard.css";
@@ -17,13 +17,15 @@ const AdminDashboard = () => {
   const [duplicatesLoading, setDuplicatesLoading] = useState(false);
 
   // Fetch initial data (Assets and duplicates count)
-  const fetchData = async () => {
-    setLoading(true);
+  const fetchData = useCallback(async () => {
     try {
       const [assetsRes, dupsRes] = await Promise.all([
         api.get("/assets/"),
-        api.get("/assets/duplicate-candidates").catch(() => ({ data: { duplicate_groups: [] } }))
+        api.get("/assets/duplicate-candidates").catch(() => ({
+          data: { duplicate_groups: [] },
+        })),
       ]);
+
       setAssets(assetsRes.data);
       setDuplicateGroups(dupsRes.data.duplicate_groups || []);
     } catch (err) {
@@ -31,11 +33,12 @@ const AdminDashboard = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   // Fetch duplicates explicitly when tab selected
   const fetchDuplicatesOnly = async () => {
@@ -69,7 +72,12 @@ const AdminDashboard = () => {
   // RETIRE ASSET (SOFT DELETE)
   // -----------------------------------
   const handleRetire = async (assetId) => {
-    if (!window.confirm("Retire this duplicate asset? This sets its status to retired and hides it from default search.")) return;
+    if (
+      !window.confirm(
+        "Retire this duplicate asset? This sets its status to retired and hides it from default search.",
+      )
+    )
+      return;
     try {
       await api.patch(`/assets/${assetId}/retire`);
       alert("Asset retired successfully.");
@@ -102,8 +110,15 @@ const AdminDashboard = () => {
             </p>
           </div>
           {filter === "duplicates" && (
-            <button onClick={fetchDuplicatesOnly} className="refresh-dups-btn" disabled={duplicatesLoading}>
-              <RefreshCw size={15} className={duplicatesLoading ? "spin" : ""} />
+            <button
+              onClick={fetchDuplicatesOnly}
+              className="refresh-dups-btn"
+              disabled={duplicatesLoading}
+            >
+              <RefreshCw
+                size={15}
+                className={duplicatesLoading ? "spin" : ""}
+              />
               Rescan Duplicates
             </button>
           )}
@@ -146,7 +161,9 @@ const AdminDashboard = () => {
             onClick={() => setFilter("duplicates")}
           >
             Duplicates Scan
-            <span className="filter-count filter-count--danger">{counts.duplicates}</span>
+            <span className="filter-count filter-count--danger">
+              {counts.duplicates}
+            </span>
           </button>
         </div>
 
@@ -163,25 +180,35 @@ const AdminDashboard = () => {
           ) : duplicateGroups.length === 0 ? (
             <div className="empty-state">
               <h3>No visual duplicates found</h3>
-              <p>Excellent! All image assets have distinct perceptual hashes.</p>
+              <p>
+                Excellent! All image assets have distinct perceptual hashes.
+              </p>
             </div>
           ) : (
             <div className="duplicates-section">
               <div className="duplicate-warning-banner">
                 <ShieldAlert size={16} />
-                <span>We found {duplicateGroups.length} groups of visual duplicate image files. Recommend deleting or retiring outdated duplicates to save space and clean up search context.</span>
+                <span>
+                  We found {duplicateGroups.length} groups of visual duplicate
+                  image files. Recommend deleting or retiring outdated
+                  duplicates to save space and clean up search context.
+                </span>
               </div>
 
               {duplicateGroups.map((group, gIdx) => (
                 <div key={gIdx} className="duplicate-group-card">
                   <div className="dup-group-header">
                     <h4>Duplicate Group #{gIdx + 1}</h4>
-                    <span className="dup-group-size">{group.group_size} visually identical assets</span>
+                    <span className="dup-group-size">
+                      {group.group_size} visually identical assets
+                    </span>
                   </div>
 
                   <div className="dup-group-grid">
                     {group.assets.map((asset) => {
-                      const previewUrl = asset.thumbnail_path?.startsWith("http")
+                      const previewUrl = asset.thumbnail_path?.startsWith(
+                        "http",
+                      )
                         ? asset.thumbnail_path
                         : asset.thumbnail_path
                           ? `${API_BASE}/assets/${asset.asset_id}/preview`
@@ -198,18 +225,33 @@ const AdminDashboard = () => {
                             )}
                           </div>
                           <div className="dup-item-details">
-                            <span className="dup-item-name" title={asset.asset_name || asset.original_filename}>
+                            <span
+                              className="dup-item-name"
+                              title={
+                                asset.asset_name || asset.original_filename
+                              }
+                            >
                               {asset.asset_name || asset.original_filename}
                             </span>
                             <div className="dup-item-meta">
-                              <span className="badge badge-accent">v{asset.version}</span>
-                              <span className={`badge badge-status-${asset.status}`}>{asset.status}</span>
+                              <span className="badge badge-accent">
+                                v{asset.version}
+                              </span>
+                              <span
+                                className={`badge badge-status-${asset.status}`}
+                              >
+                                {asset.status}
+                              </span>
                             </div>
-                            <span className="dup-item-hash">pHash: <code>{asset.perceptual_hash}</code></span>
+                            <span className="dup-item-hash">
+                              pHash: <code>{asset.perceptual_hash}</code>
+                            </span>
                           </div>
                           <div className="dup-item-actions">
                             <button
-                              onClick={() => navigate(`/assets/${asset.asset_id}`)}
+                              onClick={() =>
+                                navigate(`/assets/${asset.asset_id}`)
+                              }
                               className="dup-action-btn dup-action-btn--view"
                               title="View details"
                             >
