@@ -34,7 +34,7 @@ Its core purpose is to:
 | **ORM** | SQLAlchemy (sync) |
 | **Migrations** | Custom self-healing DDL script (`db/migrate.py`) — NOT Alembic |
 | **Vector Search** | ChromaDB (NOT pgvector) |
-| **Cloud Storage** | Cloudinary (images, videos, PDFs stored remotely) |
+| **File Storage** | Local Filesystem (`STORAGE_BACKEND="local"` in `storage/` directory; architecture ready for transition to AWS S3 bucket). Supports all file types |
 | **AI / LLM** | Groq API with Llama model (auto-tagging, metadata suggestion, summarization) |
 | **Embeddings** | Sentence Transformers (local) |
 | **OCR** | Tesseract / PyMuPDF |
@@ -75,7 +75,7 @@ AI-DAM/
 │       │   ├── user/schemas.py               # Auth, Review, Publish, Restrict, Notification Pydantic schemas
 │       │   └── search_schema.py              # SearchFilters, SemanticSearchRequest, HybridSearchRequest + results
 │       ├── services/storage/
-│       │   └── asset_service.py              # Core upload pipeline: hash, Cloudinary, AI enrichment, completeness
+│       │   └── asset_service.py              # Core upload pipeline: hash, local/cloud storage backend, AI enrichment, completeness
 │       ├── ai/
 │       │   ├── embeddings/                   # Sentence transformer embedding pipeline
 │       │   ├── ocr/                          # Tesseract OCR
@@ -386,7 +386,7 @@ pending_review
 
 1. **SHA256 hash** — exact duplicate check; blocks re-upload if hash already exists
 2. **dHash (perceptual hash)** — 16-char hex fingerprint stored for near-duplicate detection (images only)
-3. **Cloudinary upload** — file stored remotely; URL saved as `storage_path`
+3. **Storage persistence** — file stored locally (`STORAGE_BACKEND="local"`) or in cloud storage; path saved as `storage_path`
 4. **Thumbnail/preview generation** — Pillow for images, FFmpeg for video frames, PyMuPDF for PDF page-1
 5. **AI Enrichment** (via Groq/Llama):
    - OCR (Tesseract) for images/PDFs -> `extracted_text`
@@ -660,7 +660,7 @@ No Alembic version files needed. The DDL is idempotent.
 | Backend CORS | Locked to: localhost:5173, localhost:3000, and the Vercel URLs above |
 | Backend local dev | `http://localhost:8000` (FastAPI/uvicorn default) |
 | Database | Hosted PostgreSQL (connection via `DATABASE_URL` env var) |
-| File storage | Cloudinary (configured via `CLOUDINARY_URL` or key/secret env vars) |
+| File storage | Local Filesystem (`STORAGE_BACKEND=local`) with all file types supported; prepared for switch to S3 bucket |
 | LLM | Groq API (configured via `GROQ_API_KEY` env var) |
 | ChromaDB | Running locally or in a persistent Docker volume — no cloud hosted instance |
 | Containerization | `Dockerfile` exists in repo root for backend containerization |

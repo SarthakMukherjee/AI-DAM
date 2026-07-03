@@ -68,9 +68,5 @@ def get_mime_type(
 def validate_mime_type(
     mime_type: str
 ) -> None:
-
-    if mime_type not in ALLOWED_MIME_TYPES:
-        raise HTTPException(
-            status_code=415,
-            detail=f"Unsupported file type: {mime_type}"
-        )
+    # All file types (images, videos, documents, archives, etc.) are now permitted.
+    pass

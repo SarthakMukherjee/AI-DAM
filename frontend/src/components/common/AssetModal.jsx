@@ -15,7 +15,7 @@ import {
   Archive,
 } from "lucide-react";
 
-import api from "../../api/axios";
+import api, { API_BASE } from "../../api/axios";
 
 import "../../styles/assetmodal.css";
 
@@ -47,13 +47,17 @@ const AssetModal = ({ asset, onClose, onDelete, onArchive, showDelete }) => {
     <Folder size={22} className="modal-file-icon default" />
   );
 
-  // Cloudinary-aware preview URL
-  const previewUrl =
+  // Storage-aware preview URL
+  const rawPreview =
     asset.thumbnail_url ||
     asset.preview_url ||
     asset.thumbnail_path ||
     asset.preview_path ||
     asset.storage_path;
+
+  const previewUrl = rawPreview?.startsWith("http")
+    ? rawPreview
+    : `${API_BASE}/assets/${asset.id}/preview`;
 
   useEffect(() => {
     const handler = (e) => {

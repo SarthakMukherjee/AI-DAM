@@ -1,5 +1,5 @@
-﻿import { useState, useEffect } from "react";
-import api from "../../api/axios";
+import { useState, useEffect } from "react";
+import api, { API_BASE } from "../../api/axios";
 import Layout from "../../components/common/layout";
 import "../../styles/analytics.css";
 
@@ -28,45 +28,54 @@ const Analytics = () => {
 
   const maxUsage = topAssets[0]?.total_usage || 1;
 
+  if (loading) {
+    return (
+      <Layout>
+        <div className="analytics-loading">Loading Analytics...</div>
+      </Layout>
+    );
+  }
+
   return (
     <Layout>
       <div className="analytics-page">
         {/* HEADER */}
-        <div className="admin-header">
+        <div className="analytics-header">
           <div>
-            <h1 className="admin-title">Analytics</h1>
-
-            <p className="admin-subtitle">
-              Asset usage and performance overview
+            <h1>Analytics & Usage</h1>
+            <p className="analytics-subtitle">
+              Monitor asset performance and top downloads across the platform
             </p>
           </div>
         </div>
 
-        {/* TOP ASSETS */}
-        <div className="analytics-section">
-          <h2 className="browser-section-title">Most Used Assets</h2>
+        {/* MOST USED ASSETS CARD */}
+        <div className="analytics-card">
+          <div className="analytics-card-header">
+            <h3>Most Used Assets</h3>
+            <span className="analytics-badge">Top 10</span>
+          </div>
 
-          {loading ? (
-            <div className="flex-center" style={{ padding: "4rem" }}>
-              <div className="loader" />
-            </div>
-          ) : topAssets.length === 0 ? (
-            <div className="empty-state">
-              <h3>No usage data yet</h3>
-
-              <p>Asset usage will appear here once users start downloading.</p>
+          {topAssets.length === 0 ? (
+            <div className="analytics-empty">
+              No asset usage data recorded yet.
             </div>
           ) : (
             <div className="analytics-list">
               {topAssets.map((item, index) => {
                 console.log("Analytics item:", item);
 
-                const previewUrl =
+                const rawPreview =
                   item.thumbnail_url ||
                   item.preview_url ||
                   item.thumbnail_path ||
                   item.preview_path ||
                   "";
+                const previewUrl = rawPreview?.startsWith("http")
+                  ? rawPreview
+                  : rawPreview
+                    ? `${API_BASE}/assets/${item.asset_id}/preview`
+                    : "";
 
                 console.log("Preview URL:", previewUrl);
 

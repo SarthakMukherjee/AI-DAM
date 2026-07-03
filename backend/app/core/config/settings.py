@@ -42,11 +42,15 @@ class Settings(BaseSettings):
     # CLOUDINARY
     # -----------------------------------
 
-    CLOUDINARY_CLOUD_NAME: str
+    CLOUDINARY_CLOUD_NAME: str | None = None
+    CLOUDINARY_API_KEY: str | None = None
+    CLOUDINARY_API_SECRET: str | None = None
 
-    CLOUDINARY_API_KEY: str
+    # -----------------------------------
+    # STORAGE BACKEND ("local", "cloudinary", "s3")
+    # -----------------------------------
 
-    CLOUDINARY_API_SECRET: str
+    STORAGE_BACKEND: str = "local"
 
     # -----------------------------------
     # OCR

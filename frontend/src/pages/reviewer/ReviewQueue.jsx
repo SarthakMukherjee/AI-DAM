@@ -4,7 +4,7 @@ import {
   Folder, ShieldCheck, Globe, Lock, AlertTriangle,
 } from "lucide-react";
 
-import api from "../../api/axios";
+import api, { API_BASE } from "../../api/axios";
 import Layout from "../../components/common/layout";
 import AssetModal from "../../components/common/AssetModal";
 import "../../styles/reviewqueue.css";
@@ -135,7 +135,8 @@ const ReviewQueue = () => {
               const assetName = asset.asset_metadata?.mandatory?.asset_name || asset.original_filename;
               const Icon = TYPE_ICON[asset.mime_type] || Folder;
               const tags = asset.asset_metadata?.ai_enrichment?.ai_tags?.slice(0, 3) || [];
-              const previewUrl = asset.thumbnail_path || asset.preview_path || asset.storage_path || "";
+              const rawPreview = asset.thumbnail_path || asset.preview_path || asset.storage_path || "";
+              const previewUrl = rawPreview?.startsWith("http") ? rawPreview : rawPreview ? `${API_BASE}/assets/${asset.id}/preview` : "";
               const statusCfg = STATUS_CONFIG[asset.status] || { label: asset.status, cls: "badge-warning" };
               const isRejecting = rejectState.id === asset.id;
               const isLoading = actionLoading === asset.id;

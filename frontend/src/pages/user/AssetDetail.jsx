@@ -5,7 +5,7 @@ import {
   CheckCircle2, XCircle, Clock3, Globe, Lock, AlertTriangle,
   Tag, Brain, BarChart2, GitBranch, Copy, ExternalLink
 } from "lucide-react";
-import api from "../../api/axios";
+import api, { API_BASE } from "../../api/axios";
 import Layout from "../../components/common/layout";
 import "../../styles/assetdetail.css";
 
@@ -131,7 +131,8 @@ const AssetDetail = () => {
   const StatusIcon = statusCfg.Icon;
   const FileIcon = TYPE_ICON[asset.mime_type] || Folder;
 
-  const previewUrl = asset.thumbnail_url || asset.preview_url || asset.thumbnail_path || asset.preview_path || asset.storage_path;
+  const rawPreview = asset.thumbnail_url || asset.preview_url || asset.thumbnail_path || asset.preview_path || asset.storage_path;
+  const previewUrl = rawPreview?.startsWith("http") ? rawPreview : `${API_BASE}/assets/${asset.id}/preview`;
 
   const completeness = computeCompleteness(asset);
   const completenessColor = completeness >= 80 ? "var(--success)" : completeness >= 50 ? "var(--warning)" : "var(--danger)";
@@ -375,7 +376,8 @@ const AssetDetail = () => {
               {similarAssets.map((sim) => {
                 const simName = sim.original_filename;
                 const matchPct = Math.round(sim.similarity * 100);
-                const simPreviewUrl = sim.thumbnail_path || sim.preview_path || sim.storage_path;
+                const rawSimPreview = sim.thumbnail_path || sim.preview_path || sim.storage_path;
+                const simPreviewUrl = rawSimPreview?.startsWith("http") ? rawSimPreview : rawSimPreview ? `${API_BASE}/assets/${sim.id}/preview` : null;
                 return (
                   <div key={sim.id} className="similar-asset-card" onClick={() => navigate(`/assets/${sim.id}`)}>
                     <div className="similar-thumb">

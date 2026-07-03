@@ -53,7 +53,9 @@ class StorageService:
             os.remove(temp_path)
 
     def delete_local_file(self, file_path: str):
-        """Delete local file after successful cloud upload."""
+        """Delete local file after successful cloud upload (unless storage backend is local)."""
+        if getattr(settings, "STORAGE_BACKEND", "local").lower() == "local":
+            return
         try:
             if file_path and os.path.exists(file_path) and not file_path.startswith("http"):
                 os.remove(file_path)

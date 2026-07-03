@@ -338,8 +338,14 @@ def download_asset(
         return RedirectResponse(url=asset.storage_path)
 
     # local file — serve directly
+    file_path = asset.storage_path
+    if not os.path.exists(file_path) and os.path.exists(os.path.join(settings.STORAGE_PATH, file_path)):
+        file_path = os.path.join(settings.STORAGE_PATH, file_path)
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="File not found on local storage")
+
     return FileResponse(
-        path=asset.storage_path,
+        path=file_path,
         filename=asset.original_filename
     )
 
@@ -366,7 +372,7 @@ def preview_asset(
     # Enforce Phase 4.1 restricted access control
     check_restricted_access(asset, current_user)
 
-    preview_path = asset.preview_path or asset.thumbnail_path
+    preview_path = asset.preview_path or asset.thumbnail_path or asset.storage_path
 
     if not preview_path:
         raise HTTPException(status_code=404, detail="Preview unavailable")
@@ -378,6 +384,11 @@ def preview_asset(
         return RedirectResponse(url=preview_path)
 
     # local file
+    if not os.path.exists(preview_path) and os.path.exists(os.path.join(settings.STORAGE_PATH, preview_path)):
+        preview_path = os.path.join(settings.STORAGE_PATH, preview_path)
+    if not os.path.exists(preview_path):
+        raise HTTPException(status_code=404, detail="Preview file not found on local storage")
+
     return FileResponse(preview_path)
 
 
@@ -411,11 +422,16 @@ def pdf_viewer(
     if is_cloud_url(asset.storage_path):
         return RedirectResponse(url=asset.storage_path)
 
-    if not asset.storage_path or not os.path.exists(asset.storage_path):
+    file_path = asset.storage_path
+    if not file_path:
+        raise HTTPException(status_code=404, detail="PDF path missing")
+    if not os.path.exists(file_path) and os.path.exists(os.path.join(settings.STORAGE_PATH, file_path)):
+        file_path = os.path.join(settings.STORAGE_PATH, file_path)
+    if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="PDF file not found on disk")
 
     return FileResponse(
-        path=asset.storage_path,
+        path=file_path,
         media_type="application/pdf",
         headers={
             "Content-Disposition": f"inline; filename={asset.original_filename}"

@@ -165,9 +165,10 @@ class AssetService:
                 self.storage_service.delete_local_file(local_preview)
 
         # =====================================================
-        # STEP 9 — UPLOAD ORIGINAL TO CLOUDINARY
         # =====================================================
-        print(f"[UPLOAD] Uploading to Cloudinary: {original_path}")
+        # STEP 9 — UPLOAD ORIGINAL TO STORAGE BACKEND
+        # =====================================================
+        print(f"[UPLOAD] Persisting to storage backend: {original_path}")
 
         cloud_url = CloudService.upload(
             file_path=original_path,
@@ -176,7 +177,7 @@ class AssetService:
             folder="ai-dam"
         )
 
-        print(f"[UPLOAD] Cloudinary result: {cloud_url}")
+        print(f"[UPLOAD] Storage result: {cloud_url}")
 
         if not cloud_url:
             self.storage_service.delete_local_file(original_path)
