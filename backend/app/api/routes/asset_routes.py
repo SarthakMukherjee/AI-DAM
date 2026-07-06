@@ -46,6 +46,11 @@ from app.services.storage.duplicate_merge_service import (
     DuplicateMergeService
 )
 
+from app.services.storage.expiry_service import ExpiryService
+
+
+
+
 limiter = Limiter(key_func=get_remote_address)
 
 router = APIRouter(
@@ -266,7 +271,25 @@ def list_assets(
       ]["domain"].as_string().in_(current_user.allowed_domains)
       query = query.filter(domain_filter)
 
-    return query.all()
+    assets = query.all()
+
+    response = []
+
+    for asset in assets:
+
+        # Automatically restrict expired assets
+        ExpiryService.auto_restrict_if_expired(asset=asset, db=db)
+        expiry=ExpiryService.build_expiry_status(asset)
+
+        response.append(
+            {
+                **asset.__dict__,
+                "metadata":asset.asset_metadata,
+                **expiry,
+            }
+        )
+
+        return response
 
 
 # -----------------------------------
@@ -877,4 +900,24 @@ def get_asset(
                 detail="Failed to verify asset domain scope"
             )
 
-    return asset
+    # return asset
+
+    # --------------------------------------------------------------
+    # Feature 3.3 - Automatic Expiry Check
+    # --------------------------------------------------------------
+
+    ExpiryService.auto_restrict_if_expired(asset=asset, db=db)
+
+    db.refresh(asset)
+
+    expiry=ExpiryService.build_expiry_status(asset)
+
+    # --------------------------------------------------------------
+    # Return enriched asset response
+    # --------------------------------------------------------------
+
+    return {
+        **asset.__dict__,
+        "metadata": asset.asset_metadata,
+        **expiry,
+    }

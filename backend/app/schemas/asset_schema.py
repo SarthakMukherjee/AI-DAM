@@ -33,6 +33,17 @@ class AssetResponse(BaseModel):
 
     preview_path: Optional[str]
 
+    # ================================================
+    # FEATURE 3.3 - Expiry Status (Added on 06-07-26)
+    # ================================================
+
+    expired: bool = False
+
+    expiring_soon: bool = False
+
+    days_until_expiry: Optional[int] = None
+    # ================================================
+
     created_at: datetime
 
     class Config: 

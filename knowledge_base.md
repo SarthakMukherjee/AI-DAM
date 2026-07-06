@@ -360,7 +360,9 @@ Frontend pending:
 ---
 
 ### FEATURE 3.3: Expiry Date Reminder & Alert System
-* **Objective:** Track assets whose `business.expiry_date` is approaching or passed, notify admins/reviewers, and badge them in the UI.
+* **Status** In progress
+* **Objective:** Automatically monitor assets using the `business.expiry_date` metadata field, determine expiry status, restrict expired assets when accessed, expose expiry information through asset APIs, and provide dedicated administrative monitoring endpoints.
+
 * **Database / Schema:**
   * Pydantic Schema: Add `expired` or `expiring_soon` computed flags in asset response schemas.
 * **Backend API:**
@@ -369,6 +371,147 @@ Frontend pending:
 * **Frontend UI:**
   * Update `AssetCard.jsx` and `AssetDetail.jsx` to parse `metadata.business.expiry_date`. If date is past, show a prominent red badge `EXPIRED`. If approaching within 30 days, show amber badge `EXPIRING SOON`. Add an "Expiring Assets" filter/tab in Admin Dashboard.
 
+### Current Implementation Progress
+### ✅ Completed
+
+#### 1. Expiry Service
+
+A dedicated expiry management service has been introduced.
+
+**Location**
+
+```text
+backend/app/services/storage/expiry_service.py
+```
+
+**Responsibilities**
+
+- Read expiry date from `asset_metadata.business.expiry_date`
+- Parse `YYYY-MM-DD` formatted dates
+- Ignore invalid or missing expiry dates
+- Determine whether an asset is expired
+- Determine whether an asset is expiring soon (default threshold: 30 days)
+- Calculate remaining days until expiry
+- Build reusable expiry status payloads
+- Automatically restrict expired assets
+- Generate notifications for all Admin and Super Admin users
+- Retrieve all expired and expiring assets for administrative monitoring
+
+Implemented methods:
+
+```python
+ExpiryService.get_expiry_date()
+
+ExpiryService.is_expired()
+
+ExpiryService.days_until_expiry()
+
+ExpiryService.is_expiring_soon()
+
+ExpiryService.build_expiry_status()
+
+ExpiryService.auto_restrict_if_expired()
+
+ExpiryService.get_expiring_assets()
+```
+
+---
+
+#### 2. Asset Response Schema
+
+**File**
+
+```text
+backend/app/schemas/asset_schema.py
+```
+
+`AssetResponse` now exposes computed expiry information.
+
+Added fields:
+
+```python
+expired: bool = False
+
+expiring_soon: bool = False
+
+days_until_expiry: Optional[int] = None
+```
+
+These fields are computed dynamically by `ExpiryService` and are **not persisted** in the database.
+
+---
+
+#### 3. Asset Retrieval Integration
+
+`GET /assets/{asset_id}` has been integrated with the expiry service.
+
+Current flow:
+
+```
+Load Asset
+      │
+Permission Checks
+      │
+Restricted Access Validation
+      │
+Domain Validation
+      │
+ExpiryService.auto_restrict_if_expired()
+      │
+ExpiryService.build_expiry_status()
+      │
+Return enriched AssetResponse
+```
+
+Returned responses now include:
+
+- expired
+- expiring_soon
+- days_until_expiry
+
+Expired assets are automatically transitioned to `restricted` during retrieval if required.
+
+
+## Pending Development
+
+The following items remain to complete Feature 3.3:
+
+- Integrate expiry status into asset listing endpoints.
+- Implement `GET /admin/assets/expiring`.
+- Implement `POST /admin/assets/{asset_id}/check-expiry`.
+- Add expiry dashboard components in the frontend.
+- Add Expired / Expiring Soon badges in Asset Cards.
+- Display expiry information on Asset Detail page.
+- Add admin expiry filters.
+- Complete frontend API integration.
+
+---
+
+## Design Notes
+
+No database schema changes were required.
+
+The expiry system relies entirely on:
+
+```
+asset.asset_metadata
+    └── business
+            └── expiry_date
+```
+
+The existing workflow status field is reused:
+
+```
+approved
+draft
+pending_review
+archived
+restricted
+```
+
+Expired assets transition to `restricted` automatically without introducing a new status enum.
+
+---
 ---
 
 ### FEATURE 5.1: AuditLog Database Model & Migration
