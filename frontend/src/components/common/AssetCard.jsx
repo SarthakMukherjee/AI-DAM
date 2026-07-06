@@ -1,4 +1,4 @@
-import { Image, Video, FileText, Folder } from "lucide-react";
+import { Image, Video, FileText, Folder, Clock, AlertCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import "../../styles/assetcard.css";
@@ -40,7 +40,9 @@ const AssetCard = ({
   const assetName =
     asset.asset_metadata?.mandatory?.asset_name || asset.original_filename;
 
-  const tags = asset.asset_metadata?.ai_enrichment?.ai_tags?.slice(0, 3) || [];
+  const tags = Array.isArray(asset.asset_metadata?.ai_enrichment?.ai_tags) 
+    ? asset.asset_metadata.ai_enrichment.ai_tags.slice(0, 3) 
+    : [];
 
   const description = asset.asset_metadata?.mandatory?.description || "";
 
@@ -57,6 +59,11 @@ const AssetCard = ({
   const isMissingMeta =
     !asset.asset_metadata?.mandatory?.description ||
     !asset.asset_metadata?.business?.domain;
+
+  // Expiry flags — computed by backend ExpiryService and returned in asset response
+  const isExpired = asset.expired === true;
+  const isExpiringSoon = asset.expiring_soon === true;
+  const daysUntilExpiry = asset.days_until_expiry ?? null;
 
   const previewUrl = asset.thumbnail_path?.startsWith("http")
     ? asset.thumbnail_path
@@ -90,6 +97,20 @@ const AssetCard = ({
             <div className={`asset-status-badge badge ${statusCfg.cls}`}>
               {statusCfg.label}
             </div>
+
+            {/* EXPIRY BADGES */}
+            {isExpired && (
+              <div className="asset-expiry-badge asset-expiry-badge--expired" title="This asset has expired and is restricted">
+                <AlertCircle size={11} />
+                EXPIRED
+              </div>
+            )}
+            {!isExpired && isExpiringSoon && (
+              <div className="asset-expiry-badge asset-expiry-badge--soon" title={`Expires in ${daysUntilExpiry} day${daysUntilExpiry === 1 ? '' : 's'}`}>
+                <Clock size={11} />
+                {daysUntilExpiry !== null ? `${daysUntilExpiry}d left` : 'EXPIRING SOON'}
+              </div>
+            )}
 
             {/* MISSING METADATA WARNING */}
             {isMissingMeta && (

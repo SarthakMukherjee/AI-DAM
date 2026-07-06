@@ -79,13 +79,13 @@ class DuplicateResolveRequest(BaseModel):
 
     merge_metadata: bool=True
 
-class DuplicateResolvseResponse(BaseModel):
+class DuplicateResolveResponse(BaseModel):
     """
     Response after duplicate resolution.
     """
-    success:bool
-    message:str
-    canonical_asset_id:str
-    duplicate_asset_id:str
-    action:str
-    metadata_merged:bool
+    success: bool
+    message: str
+    canonical_asset_id: str
+    duplicate_asset_id: str
+    action: str
+    metadata_merged: bool

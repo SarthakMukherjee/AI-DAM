@@ -92,3 +92,18 @@ class Asset(Base):
         onupdate=func.now(),
         nullable=True,
     )
+
+    # -------------------------------------------------------
+    # VIDEO-SPECIFIC FIELDS — Phase 6.4
+    # Stored as top-level columns (not inside JSONB)
+    # for direct SQL querying and filtering
+    # -------------------------------------------------------
+
+    # Duration in seconds (for video asset types)
+    video_duration_seconds = Column(Integer, nullable=True)
+
+    # Optional transcript / captions text for video assets
+    video_transcript = Column(Text, nullable=True)
+
+    # Aspect ratio string e.g. "16:9", "9:16", "1:1"
+    video_aspect_ratio = Column(String(20), nullable=True)

@@ -38,6 +38,11 @@ _ASSET_COLUMNS: list[tuple[str, str]] = [
     # Archive — Phase 3.2 / 3.5
     ("archived_at",     "TIMESTAMP WITH TIME ZONE"),
     ("archive_reason",  "TEXT"),
+
+    # Video-specific fields — Phase 6.4
+    ("video_duration_seconds", "INTEGER"),
+    ("video_transcript",       "TEXT"),
+    ("video_aspect_ratio",     "VARCHAR(20)"),
 ]
 
 _USER_COLUMNS: list[tuple[str, str]] = [

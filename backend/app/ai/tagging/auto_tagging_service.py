@@ -133,22 +133,34 @@ class AutoTaggingService:
             }
 
         prompt = f"""
-        You are an AI DAM METADATA ASSISTANT.
-        Your task is to analyze the extracted data of an asset and recommend values for its mandatory metadata fields.
+        You are an AI DAM METADATA ASSISTANT for an Enterprise Digital Asset Management system.
+        Your task is to analyze the extracted data of an asset and recommend values for its metadata fields.
         
-        The mandatory metadata fields are:
-        1. asset_name: A user-friendly, descriptive title for the asset (e.g. "Marketing Campaign Banner" instead of "marketing_banner_v2.png"). Generate this based on the filename and the extracted visual/text content.
-        2. asset_type: Must be one of: "image", "video", "pdf", "document". Choose the most appropriate one.
-        3. description: A clear, concise description summarizing the content of the asset (2-3 sentences max).
-        4. created_by: Recommend a creator (e.g. from PDF metadata author field if present, or suggest a realistic placeholder/default value like "Admin" or "AI Ingest Service").
-        5. owner: Recommend an owner (e.g. from PDF metadata, or suggest a realistic placeholder/default value like "Admin" or "Marketing Team").
-        6. usage_rights: Recommend usage rights. Must be one of: "Internal Only", "Licensed", "Public Domain", "Restricted", "Royalty Free", "Creative Commons".
+        The metadata fields you MUST recommend are:
 
-        You should STRICTLY follow the following rules:
-        - Return ONLY valid JSON
-        - No markdown
-        - No explanations
-        - Use the exact field keys: "asset_name", "asset_type", "description", "created_by", "owner", "usage_rights"
+        MANDATORY FIELDS:
+        1. asset_name: A user-friendly, descriptive title (e.g. "Marketing Campaign Banner" not "banner_v2.png").
+        2. asset_type: Must be one of: "image", "video", "pdf", "document", "banner", "brochure", "social_creative", "logo", "pitch_deck", "campaign_file".
+        3. description: A clear, concise description of the asset content (2-3 sentences max).
+        4. created_by: Infer from metadata (e.g. PDF author) or use "Admin".
+        5. owner: Infer from metadata or use "Marketing Team".
+        6. usage_rights: Must be one of: "Internal Only", "Licensed", "Public Domain", "Restricted", "Royalty Free", "Creative Commons".
+
+        BUSINESS CONTEXT FIELDS (infer from content, visuals, and subject matter):
+        7. domain: The business domain this asset belongs to. Must be one of: "AI", "Staffing", "Marketing", "Sales", "Finance", "HR", "Operations", "Healthcare", "Tech", "Design".
+        8. use_case: Must be one of: "email", "presentation", "website", "campaign", "sales", "social_media", "advertisment".
+        9. audience: Must be one of: "b2b", "enterprise", "startup", "consumer", "partner".
+        10. funnel_stage: Must be one of: "awareness", "consideration", "conversion".
+
+        CONTENT FIELDS:
+        11. tone: Must be one of: "professional", "casual", "formal", "friendly", "technical", "creative".
+        12. keywords: A comma-separated string of 3-6 relevant keywords derived from the content.
+
+        RULES:
+        - Return ONLY valid JSON with EXACTLY these 12 keys
+        - No markdown, no explanations, no code blocks
+        - Every field is required — never return null or empty string
+        - Infer intelligently from the content; if uncertain, pick the most likely value
 
         Required JSON format:
         {{
@@ -157,11 +169,17 @@ class AutoTaggingService:
             "description": "...",
             "created_by": "...",
             "owner": "...",
-            "usage_rights": "..."
+            "usage_rights": "...",
+            "domain": "...",
+            "use_case": "...",
+            "audience": "...",
+            "funnel_stage": "...",
+            "tone": "...",
+            "keywords": "..."
         }}
 
         Filename: {filename}
-        Asset Type: {detected_type}
+        Detected File Type: {detected_type}
         Extracted Data:
         {json.dumps(extracted_context, indent=2)}
         """

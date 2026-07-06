@@ -166,6 +166,10 @@ async def upload_asset(
     metadata: str = Form("{}"),
     parent_id: str = Form(None),
     changelog: str = Form(None),
+    # Phase 6.4 — Video-specific optional fields
+    video_duration_seconds: int = Form(None),
+    video_transcript: str = Form(None),
+    video_aspect_ratio: str = Form(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin)
 ):
@@ -193,6 +197,19 @@ async def upload_asset(
         changelog=changelog,
         uploaded_by=current_user.email if hasattr(current_user, "email") else str(current_user.id),
     )
+
+    # Phase 6.4 — Persist video-specific fields if provided
+    if video_duration_seconds is not None:
+        asset.video_duration_seconds = video_duration_seconds
+    if video_transcript:
+        asset.video_transcript = video_transcript.strip()
+    if video_aspect_ratio:
+        asset.video_aspect_ratio = video_aspect_ratio.strip()
+
+    if any([video_duration_seconds, video_transcript, video_aspect_ratio]):
+        db.add(asset)
+        db.commit()
+        db.refresh(asset)
 
     return asset
 
@@ -289,7 +306,7 @@ def list_assets(
             }
         )
 
-        return response
+    return response
 
 
 # -----------------------------------

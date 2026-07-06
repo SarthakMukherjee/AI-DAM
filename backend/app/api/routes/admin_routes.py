@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -21,6 +21,7 @@ from app.schemas.user.schemas import (
 )
 
 from app.services.storage.cloud_service import CloudService
+from app.services.storage.expiry_service import ExpiryService
 
 import os
 import shutil
@@ -355,3 +356,81 @@ def asset_usage(
             for row in by_action
         }
     }
+
+
+# =====================================================
+# EXPIRY MONITORING
+# admin + super_admin
+# =====================================================
+
+@router.get("/assets/expiring")
+def list_expiring_assets(
+    days_threshold: int = Query(default=30, ge=1, le=365),
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin)
+):
+    """
+    Return all assets that are expired or expiring within `days_threshold` days.
+    Each result includes computed `expired`, `expiring_soon`, and `days_until_expiry` flags.
+    """
+    expiring = ExpiryService.get_expiring_assets(db, threshold_days=days_threshold)
+
+    results = []
+    for item in expiring:
+        asset = item["asset"]
+        meta = asset.asset_metadata or {}
+        mandatory = meta.get("mandatory", {})
+        business = meta.get("business", {})
+        results.append({
+            "asset_id": asset.id,
+            "original_filename": asset.original_filename,
+            "asset_name": mandatory.get("asset_name", asset.original_filename),
+            "status": asset.status,
+            "domain": business.get("domain", ""),
+            "expiry_date": business.get("expiry_date", ""),
+            "thumbnail_path": asset.thumbnail_path,
+            "expired": item.get("expired", False),
+            "expiring_soon": item.get("expiring_soon", False),
+            "days_until_expiry": item.get("days_until_theory"),
+        })
+
+    return {"expiring_assets": results, "count": len(results)}
+
+
+@router.post("/assets/{asset_id}/check-expiry")
+def check_asset_expiry(
+    asset_id: str,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin)
+):
+    """
+    Manually trigger expiry check for a specific asset.
+    If expired, auto-restricts asset and creates admin notifications.
+    Returns current expiry status.
+    """
+    asset = (
+        db.query(Asset)
+        .filter(Asset.id == asset_id)
+        .first()
+    )
+
+    if not asset:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Asset not found"
+        )
+
+    status_changed = ExpiryService.auto_restrict_if_expired(asset, db)
+    expiry_status = ExpiryService.build_expiry_status(asset)
+
+    return {
+        "asset_id": asset_id,
+        "status_changed": status_changed,
+        "current_status": asset.status,
+        **expiry_status,
+        "message": (
+            "Asset has been automatically restricted due to expiry."
+            if status_changed
+            else "No status change — asset is not expired or already restricted."
+        )
+    }

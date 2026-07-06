@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Download, Image, Video, FileText, Folder,
   CheckCircle2, XCircle, Clock3, Globe, Lock, AlertTriangle,
-  Tag, Brain, BarChart2, GitBranch, Copy, ExternalLink
+  Tag, Brain, BarChart2, GitBranch, Copy, ExternalLink, CalendarClock, AlertCircle
 } from "lucide-react";
 import api, { API_BASE } from "../../api/axios";
 import Layout from "../../components/common/layout";
@@ -264,6 +264,35 @@ const AssetDetail = () => {
 
             {mandatory.description && (
               <p className="asset-detail-description">{mandatory.description}</p>
+            )}
+
+            {/* EXPIRY BANNER */}
+            {asset.expired && (
+              <div className="expiry-banner expiry-banner--expired">
+                <AlertCircle size={16} />
+                <div className="expiry-banner-text">
+                  <strong>Asset Expired</strong>
+                  <span>
+                    This asset expired on{" "}
+                    <strong>{business.expiry_date}</strong> and has been automatically restricted.
+                  </span>
+                </div>
+              </div>
+            )}
+            {!asset.expired && asset.expiring_soon && (
+              <div className="expiry-banner expiry-banner--soon">
+                <CalendarClock size={16} />
+                <div className="expiry-banner-text">
+                  <strong>Expiring Soon</strong>
+                  <span>
+                    This asset expires on{" "}
+                    <strong>{business.expiry_date}</strong>
+                    {asset.days_until_expiry != null && (
+                      <> — <strong>{asset.days_until_expiry} day{asset.days_until_expiry === 1 ? "" : "s"} remaining</strong></>
+                    )}
+                  </span>
+                </div>
+              </div>
             )}
 
             {/* MANDATORY METADATA */}

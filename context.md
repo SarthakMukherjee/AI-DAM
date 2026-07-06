@@ -4,8 +4,8 @@
 > Feed it to any LLM to understand the full system state, what is already built, what is missing,
 > and in what order to build the remaining features.
 >
-> **Last updated:** 2026-07-02
-> **Overall completion:** ~71% of the full plan (Phases 1 and 4 complete, Phases 2 & 3 at 88%, Phases 5-8 unbuilt)
+> **Last updated:** 2026-07-06
+> **Overall completion:** ~80% of the full plan (Phases 1, 2, 3, 4 and 6 complete, Phase 5 and 7-8 unbuilt)
 
 ---
 
@@ -541,16 +541,16 @@ pending_review
 
 ---
 
-#### PHASE 6 — Smart Upload & Asset-Type Awareness | 0 of 4 done | ALL UNBUILT
+#### PHASE 6 — Smart Upload & Asset-Type Awareness | 4 of 4 done | ALL COMPLETE ✅
 
 > Prerequisite: Phase 1.1 (AssetTypes enum expansion) must be done first.
 
-| ID | Item | Notes |
-|---|---|---|
-| 6.1 | Adaptive upload wizard | Step 3 (Business) should show different required fields depending on `asset_type` selected in Step 2 |
-| 6.2 | Drag-and-drop upload | Replace click-only file input with a drop zone |
-| 6.3 | Batch upload | Allow selecting multiple files; upload queue with progress per file |
-| 6.4 | Video-specific fields | Add `duration`, `transcript`, `thumbnail_override` fields for video asset type |
+| ID | Item | Status | Detail |
+|---|---|---|---|
+| 6.1 | Adaptive upload wizard | DONE | `UploadAsset.jsx` — Step 2 (Business) dynamically shows required fields per asset_type. video/social_creative require campaign or service_line; brochure/campaign_file require both; pitch_deck requires audience+use_case; logo/brand_guideline require domain. Amber alert shown for required fields. **AI Suggestion expanded**: Business fields (Domain, Use Case, Audience, Funnel Stage) and Content fields (Tone, Keywords) are now also inferred by the LLM during analysis and highlighted with "AI Suggested" badges. |
+| 6.2 | Drag-and-drop upload | DONE | `UploadAsset.jsx` — Drop zone has `onDragOver`, `onDragLeave`, `onDrop` handlers. Visual indigo border highlight on drag. Works in both single and batch mode. |
+| 6.3 | Batch upload | DONE | `UploadAsset.jsx` — Batch Mode toggle in header. Multi-file drop zone / file picker. Sequential queue runs AI Analyze then Upload per file. Per-file status badges (Queued → AI Analyzing → Uploading N% → Done/Error). Gradient progress bar per file. |
+| 6.4 | Video-specific fields | DONE | `asset_model.py` + `migrate.py` — `video_duration_seconds`, `video_transcript`, `video_aspect_ratio` columns added. Upload route accepts them as optional form fields. `UploadAsset.jsx` shows a "Video Details" sub-section in Step 2 when asset_type is video or social_creative. |
 
 ---
 
@@ -579,14 +579,14 @@ pending_review
 | Phase | Description | Total Items | Done | Remaining | % Done |
 |---|---|:---:|:---:|:---:|:---:|
 | **1** | Foundation Fixes | 12 | 12 | 0 | **100%** |
-| **2** | Search & Discovery | 8 | 7.5 | 0.5 | ~94% |
-| **3** | Version Control & Workflow | 8 | 7 | 1 | 88% |
+| **2** | Search & Discovery | 8 | 8 | 0 | **100%** |
+| **3** | Version Control & Workflow | 8 | 8 | 0 | **100%** |
 | **4** | Role & Permission Expansion | 6 | 6 | 0 | **100%** |
 | **5** | Audit Trail & Reporting | 8 | 0 | 8 | 0% |
-| **6** | Smart Upload & Asset-Type Awareness | 4 | 0 | 4 | 0% |
+| **6** | Smart Upload & Asset-Type Awareness | 4 | 4 | 0 | **100%** |
 | **7** | Website & Marketing Context | 3 | 0 | 3 | 0% |
 | **8** | Integration Layer | 3 | 0 | 3 | 0% |
-| | **TOTAL** | **52** | **37.5** | **14.5** | **~72%** |
+| | **TOTAL** | **52** | **41** | **11** | **~79%** |
 
 ---
 
@@ -669,4 +669,4 @@ No Alembic version files needed. The DDL is idempotent.
 | ChromaDB | Running locally or in a persistent Docker volume — no cloud hosted instance |
 | Containerization | `Dockerfile` exists in repo root for backend containerization |
 
-*End of AI-DAM context document. Total: ~71% complete. 15 items remaining. Phases 1 and 4 are 100% done. Phases 2 and 3 are 88% done.*
+*End of AI-DAM context document. Total: ~80% complete. 14 items remaining. Phases 1, 2, 3, 4 and 6 are 100% done. Phases 5, 7, and 8 are unbuilt.*

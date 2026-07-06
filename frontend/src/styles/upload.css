@@ -685,10 +685,392 @@
 }
 
 @keyframes pulseText {
-  0%, 100% {
-    opacity: 0.6;
-  }
-  50% {
-    opacity: 1;
-  }
+  0%, 100% { opacity: 0.6; }
+  50%       { opacity: 1; }
+}
+
+/* ai-badge variant for step headings (larger, sitting next to h2) */
+.ai-badge--step {
+  font-size: 0.7rem;
+  padding: 0.22rem 0.65rem;
+  margin-left: 0.6rem;
+  vertical-align: middle;
+  background: linear-gradient(135deg, rgba(99,102,241,0.22), rgba(168,85,247,0.22));
+  color: #c4b5fd;
+  border: 1px solid rgba(99,102,241,0.35);
+  border-radius: 6px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  animation: ai-shimmer 2.5s ease-in-out infinite;
+}
+
+@keyframes ai-shimmer {
+  0%, 100% { opacity: 0.85; }
+  50%       { opacity: 1; box-shadow: 0 0 8px rgba(99,102,241,0.3); }
+}
+
+
+/* ============================================================
+   PHASE 6 — DRAG-AND-DROP HIGHLIGHT (6.2)
+============================================================ */
+
+.upload-dropzone--drag-over {
+  border-color: rgba(99, 102, 241, 0.7) !important;
+  background: rgba(99, 102, 241, 0.07) !important;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18);
+  transform: scale(1.01);
+}
+
+.drop-active-text {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+/* ============================================================
+   PHASE 6 — BATCH UPLOAD TOGGLE (6.3)
+============================================================ */
+
+.batch-mode-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  cursor: pointer;
+  font-size: 0.87rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  padding: 0.5rem 1rem;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.batch-mode-toggle:hover {
+  border-color: rgba(99, 102, 241, 0.35);
+  color: var(--text-primary);
+}
+
+.batch-mode-toggle input[type="checkbox"] {
+  accent-color: var(--accent);
+  width: 1rem;
+  height: 1rem;
+}
+
+.batch-mode-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 6px;
+  background: rgba(99, 102, 241, 0.12);
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+/* ============================================================
+   PHASE 6 — BATCH PANEL (6.3)
+============================================================ */
+
+.batch-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.batch-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 3rem 2rem;
+  border-radius: 24px;
+  border: 2px dashed rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.015);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+.batch-dropzone:hover {
+  border-color: rgba(99, 102, 241, 0.4);
+  background: rgba(99, 102, 241, 0.04);
+  color: var(--text-primary);
+}
+
+.batch-dropzone--drag {
+  border-color: rgba(99, 102, 241, 0.7) !important;
+  background: rgba(99, 102, 241, 0.08) !important;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+  color: var(--text-primary);
+}
+
+.batch-dropzone svg {
+  color: var(--accent);
+  opacity: 0.7;
+}
+
+/* QUEUE */
+
+.batch-queue {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.015);
+  overflow: hidden;
+}
+
+.batch-queue-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.batch-queue-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.batch-start-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1.1rem;
+  border-radius: 10px;
+  border: none;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.batch-start-btn:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.batch-start-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* BATCH ITEM */
+
+.batch-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.85rem 1.25rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  transition: background 0.15s ease;
+}
+
+.batch-item:last-child {
+  border-bottom: none;
+}
+
+.batch-item--done    { background: rgba(34, 197, 94, 0.03); }
+.batch-item--error   { background: rgba(239, 68, 68, 0.04); }
+.batch-item--queued  { background: transparent; }
+.batch-item--analyzing,
+.batch-item--uploading { background: rgba(99, 102, 241, 0.03); }
+
+.batch-item-icon {
+  flex-shrink: 0;
+  width: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.batch-item--done .batch-item-icon    { color: var(--success); }
+.batch-item--error .batch-item-icon   { color: var(--danger); }
+.batch-item--queued .batch-item-icon  { color: var(--text-muted); }
+.batch-item--analyzing .batch-item-icon,
+.batch-item--uploading .batch-item-icon { color: var(--accent); }
+
+.batch-spinner {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid rgba(99, 102, 241, 0.2);
+  border-top-color: var(--accent);
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.batch-item-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.batch-item-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.batch-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.77rem;
+  color: var(--text-muted);
+}
+
+.batch-status-label {
+  font-weight: 600;
+  font-size: 0.74rem;
+}
+
+.batch-status--analyzing { color: #818cf8; }
+.batch-status--uploading { color: var(--accent); }
+.batch-status--done      { color: var(--success); }
+.batch-status--error     { color: var(--danger); }
+
+.batch-progress-bar {
+  height: 3px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+  margin-top: 0.25rem;
+}
+
+.batch-progress-fill {
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, #6366f1, #8b5cf6);
+  transition: width 0.3s ease;
+}
+
+.batch-remove-btn {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.8rem;
+  height: 1.8rem;
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.batch-remove-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--danger);
+  border-color: rgba(239, 68, 68, 0.2);
+}
+
+.batch-done-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.85rem 1.25rem;
+  background: rgba(34, 197, 94, 0.08);
+  color: var(--success);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+/* ============================================================
+   PHASE 6 — ADAPTIVE BUSINESS FIELDS (6.1)
+============================================================ */
+
+.adaptive-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--accent);
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: 6px;
+  padding: 0.18rem 0.55rem;
+  margin-left: 0.75rem;
+  vertical-align: middle;
+}
+
+.adaptive-rules-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.8rem 1rem;
+  border-radius: 12px;
+  background: rgba(245, 158, 11, 0.07);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+  font-size: 0.83rem;
+  line-height: 1.5;
+  margin-bottom: 0.25rem;
+}
+
+.adaptive-rules-notice svg {
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+}
+
+.field-required-highlight {
+  border-color: rgba(245, 158, 11, 0.5) !important;
+  background: rgba(245, 158, 11, 0.04) !important;
+}
+
+.field-recommended-highlight {
+  border-color: rgba(99, 102, 241, 0.4) !important;
+}
+
+/* ============================================================
+   PHASE 6 — VIDEO-SPECIFIC FIELDS (6.4)
+============================================================ */
+
+.video-type-notice {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 0.9rem;
+  border-radius: 10px;
+  background: rgba(99, 102, 241, 0.07);
+  border: 1px solid rgba(99, 102, 241, 0.18);
+  color: #a78bfa;
+  font-size: 0.8rem;
+  font-weight: 500;
+  margin-bottom: 0.25rem;
+}
+
+.video-fields-section {
+  margin-top: 0.5rem;
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: 16px;
+  background: rgba(99, 102, 241, 0.04);
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.video-fields-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.87rem;
+  font-weight: 700;
+  color: #a78bfa;
+  margin-bottom: 0.25rem;
 }

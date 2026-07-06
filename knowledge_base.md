@@ -1,7 +1,7 @@
 # AI-DAM LLM Knowledge Base & Feature Building Blueprint
 
 > **Purpose:** This document is engineered specifically to be fed into an LLM (Claude, GPT-4, Gemini, etc.) at the beginning of a coding session. It gives the LLM complete architectural rules, strict coding boundaries, standard operating procedures, and exact, self-contained technical blueprints for building any remaining feature **one at a time** without breaking existing functionality.
-> **Current Completion Status:** ~71% Complete (37 of 52 core items built). Phases 1 & 4 are 100% complete.
+> **Current Completion Status:** ~79% Complete (41 of 52 core items built). Phases 1, 2, 3, 4 and 6 are 100% complete. Phases 5, 7, 8 are unbuilt.
 
 ---
 
@@ -89,9 +89,55 @@ If your feature requires a **new table** (e.g., `audit_logs` or `asset_webhooks`
 
 ---
 
-## SECTION 4: MASTER FEATURE BLUEPRINT CATALOG (THE 15 UNBUILT FEATURES)
+## SECTION 4: MASTER FEATURE BLUEPRINT CATALOG
 
-Choose ONE feature from below when instructed by the user and execute all specified tasks.
+Features marked **✅ DONE** are fully implemented and should NOT be rebuilt. Only add to or fix them if the user reports a specific bug.
+
+Choose ONE unbuilt feature from below when instructed by the user and execute all specified tasks.
+
+---
+
+### ✅ DONE — Phase 6: Smart Upload & Asset-Type Awareness
+
+> Built: 2026-07-06
+
+**6.1 Adaptive Upload Wizard** 
+`UploadAsset.jsx` Step 2 (Business) now dynamically shows required fields by asset_type:
+- `video`, `social_creative` → require **campaign** OR **service_line**
+- `brochure`, `campaign_file` → require both **campaign** AND **service_line**
+- `pitch_deck` → require **audience** + **use_case**
+- `logo`, `brand_guideline` → require **domain**
+- `brochure`, `campaign_file`, `social_creative` → expiry_date field shown with `field-recommended-highlight`
+- Validation happens in `handleNext()` when leaving step 2. Amber banner shown at top of Business step.
+- **AI Integration**: The `suggest_metadata` prompt in `auto_tagging_service.py` was expanded to infer 6 additional fields (domain, use_case, audience, funnel_stage, tone, keywords) from the file content. These map to the form state and show an `ai-badge` and indigo glow in the Business and Content steps when populated.
+
+**6.2 Drag-and-Drop Upload** 
+Drop zone in `UploadAsset.jsx` step 0 uses `onDragOver`, `onDragLeave`, `onDrop` handlers on the `<div>` with `ref={dropRef}`. `isDragOver` state drives `.upload-dropzone--drag-over` CSS class (indigo glow + `scale(1.01)`). Works in both single and batch modes.
+
+**6.3 Batch Upload** 
+Batch Mode toggle in header renders a separate `batch-panel` UI (not the wizard). Multi-file support via `multiple` attribute on hidden `<input>` and drag-and-drop. Sequential processing queue:
+1. Status: `queued` → `analyzing` (calls `POST /assets/analyze`) → `uploading` (calls `POST /assets/upload`) → `done` or `error`
+2. Per-file progress bar via `onUploadProgress` axios callback
+3. Files removed from queue individually with trash button (only while queued)
+4. Summary banner at end showing X uploaded, Y failed
+
+**6.4 Video-Specific Fields** 
+- DB: `video_duration_seconds INTEGER`, `video_transcript TEXT`, `video_aspect_ratio VARCHAR(20)` added to `migrate.py` (`_ASSET_COLUMNS`) and `asset_model.py`
+- Upload route (`POST /assets/upload`) accepts these as optional `Form(None)` fields and saves them to the asset row after creation
+- UI: `video-fields-section` div appears in Business step only when `asset_type` is `video` or `social_creative`. Fields: duration (number), aspect ratio (select: 16:9/9:16/1:1/4:3/3:4/21:9), transcript (textarea)
+- Frontend sends these as additional `formData.append()` entries only when non-empty
+
+**CSS Pattern:** All batch/drag/video/adaptive styles live in `frontend/src/styles/upload.css` at the bottom (after line 695 of original).
+
+---
+
+### ✅ DONE — Phase 2.4.5 + Phase 3.3
+
+> Built: 2026-07-06
+
+**Resolve Duplicate Modal** (`AdminDashboard.jsx`) — canonical picker, merge toggle, retire/delete action, calls `POST /assets/resolve-duplicate`.
+
+**Expiry Alert System** — `GET /admin/assets/expiring`, `POST /admin/assets/{id}/check-expiry` in `admin_routes.py`. Expired/expiring-soon badges in `AssetCard.jsx`. Expiry banner in `AssetDetail.jsx`. "Expiring Assets" admin tab.
 
 ---
 

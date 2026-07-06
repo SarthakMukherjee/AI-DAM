@@ -134,7 +134,9 @@ const ReviewQueue = () => {
             {assets.map((asset) => {
               const assetName = asset.asset_metadata?.mandatory?.asset_name || asset.original_filename;
               const Icon = TYPE_ICON[asset.mime_type] || Folder;
-              const tags = asset.asset_metadata?.ai_enrichment?.ai_tags?.slice(0, 3) || [];
+              const tags = Array.isArray(asset.asset_metadata?.ai_enrichment?.ai_tags) 
+                ? asset.asset_metadata.ai_enrichment.ai_tags.slice(0, 3) 
+                : [];
               const rawPreview = asset.thumbnail_path || asset.preview_path || asset.storage_path || "";
               const previewUrl = rawPreview?.startsWith("http") ? rawPreview : rawPreview ? `${API_BASE}/assets/${asset.id}/preview` : "";
               const statusCfg = STATUS_CONFIG[asset.status] || { label: asset.status, cls: "badge-warning" };
