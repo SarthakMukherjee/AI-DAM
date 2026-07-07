@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -8,6 +8,7 @@ from app.api.dependencies.auth_dependency import (
     require_super_admin,
     require_admin_or_reviewer
 )
+from app.utils.audit_logger import log_audit_event
 
 from app.models.user.user_model import User
 from app.models.asset.asset_model import Asset
@@ -63,6 +64,7 @@ def list_users(
 def update_user_role(
     user_id: str,
     body: UpdateRoleRequest,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_super_admin)
 ):
@@ -108,6 +110,16 @@ def update_user_role(
 
     user.role = body.role
 
+    log_audit_event(
+        db=db,
+        user_id=current_user.id,
+        action="ROLE_CHANGE",
+        asset_id=user_id,
+        field_name="role",
+        old_value=old_role,
+        new_value=body.role,
+        ip_address=request.client.host if request.client else None
+    )
     db.commit()
     db.refresh(user)
 
@@ -124,6 +136,7 @@ def update_user_role(
 )
 def deactivate_user(
     user_id: str,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_super_admin)
 ):
@@ -148,6 +161,16 @@ def deactivate_user(
 
     user.is_active = False
 
+    log_audit_event(
+        db=db,
+        user_id=current_user.id,
+        action="DEACTIVATE_USER",
+        asset_id=user_id,
+        field_name="is_active",
+        old_value="True",
+        new_value="False",
+        ip_address=request.client.host if request.client else None
+    )
     db.commit()
 
     return {
@@ -164,8 +187,9 @@ def deactivate_user(
 )
 def reactivate_user(
     user_id: str,
+    request: Request,
     db: Session = Depends(get_db),
-    _: User = Depends(require_super_admin)
+    current_user: User = Depends(require_super_admin)
 ):
 
     user = (
@@ -182,6 +206,16 @@ def reactivate_user(
 
     user.is_active = True
 
+    log_audit_event(
+        db=db,
+        user_id=current_user.id,
+        action="REACTIVATE_USER",
+        asset_id=user_id,
+        field_name="is_active",
+        old_value="False",
+        new_value="True",
+        ip_address=request.client.host if request.client else None
+    )
     db.commit()
 
     return {
@@ -444,8 +478,9 @@ def asset_usage(
 def update_user_domains(
     user_id: str,
     body: UpdateDomainsRequest,
+    request: Request,
     db: Session = Depends(get_db),
-    _: User = Depends(require_super_admin)
+    current_user: User = Depends(require_super_admin)
 ):
     """
     Assign domain-scoped access to a user.
@@ -463,8 +498,19 @@ def update_user_domains(
             detail="User not found"
         )
 
+    old_domains = user.allowed_domains
     user.allowed_domains = body.allowed_domains if body.allowed_domains else None
 
+    log_audit_event(
+        db=db,
+        user_id=current_user.id,
+        action="DOMAIN_CHANGE",
+        asset_id=user_id,
+        field_name="allowed_domains",
+        old_value=str(old_domains) if old_domains else "None",
+        new_value=str(user.allowed_domains) if user.allowed_domains else "None",
+        ip_address=request.client.host if request.client else None
+    )
     db.commit()
     db.refresh(user)
 

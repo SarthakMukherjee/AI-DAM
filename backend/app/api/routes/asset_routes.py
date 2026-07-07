@@ -50,6 +50,7 @@ from app.services.storage.duplicate_merge_service import (
 )
 
 from app.services.storage.expiry_service import ExpiryService
+from app.utils.audit_logger import log_audit_event
 
 
 
@@ -214,6 +215,16 @@ async def upload_asset(
         db.commit()
         db.refresh(asset)
 
+    # Log UPLOAD audit event
+    log_audit_event(
+        db=db,
+        user_id=current_user.id,
+        action="UPLOAD",
+        asset_id=asset.id,
+        ip_address=request.client.host if request.client else None
+    )
+    db.commit()
+
     return asset
 
 # Written on 30-06-26
@@ -320,6 +331,7 @@ def list_assets(
 @router.patch("/{asset_id}/submit-for-review")
 def submit_for_review(
     asset_id: str,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -345,7 +357,19 @@ def submit_for_review(
             detail=f"Cannot submit for review. Current status: {asset.status}"
         )
 
+    old_status = asset.status
     asset.status = "pending_review"
+    
+    log_audit_event(
+        db=db,
+        user_id=current_user.id,
+        action="SUBMIT_FOR_REVIEW",
+        asset_id=asset_id,
+        field_name="status",
+        old_value=old_status,
+        new_value="pending_review",
+        ip_address=request.client.host if request.client else None
+    )
     db.commit()
 
     return {
@@ -690,8 +714,9 @@ def find_similar_assets(
 @router.patch("/{asset_id}/retire")
 def retire_asset(
     asset_id: str,
+    request: Request,
     db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
+    current_user: User = Depends(require_admin),
 ):
     """
     Retire an asset: sets status = 'retired' and is_latest = False.
@@ -704,8 +729,20 @@ def retire_asset(
     if asset.status == "retired":
         raise HTTPException(status_code=400, detail="Asset is already retired")
 
+    old_status = asset.status
     asset.status = "retired"
     asset.is_latest = False
+    
+    log_audit_event(
+        db=db,
+        user_id=current_user.id,
+        action="RETIRE",
+        asset_id=asset_id,
+        field_name="status",
+        old_value=old_status,
+        new_value="retired",
+        ip_address=request.client.host if request.client else None
+    )
     db.commit()
 
     return {
@@ -724,9 +761,10 @@ def retire_asset(
 @router.patch("/{asset_id}/archive")
 def archive_asset(
     asset_id: str,
+    request: Request,
     reason: str = Form(None),
     db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
+    current_user: User = Depends(require_admin),
 ):
     """
     Permanently archive an asset.
@@ -747,6 +785,17 @@ def archive_asset(
     asset.is_archived = True
     asset.archived_at = datetime.now(timezone.utc)
     asset.archive_reason = reason or ""
+    
+    log_audit_event(
+        db=db,
+        user_id=current_user.id,
+        action="ARCHIVE",
+        asset_id=asset_id,
+        field_name="is_archived",
+        old_value="False",
+        new_value="True",
+        ip_address=request.client.host if request.client else None
+    )
     db.commit()
 
     return {
@@ -849,8 +898,9 @@ def duplicate_candidates(
 
 def resolve_duplicate_asset(
     request:DuplicateResolveRequest,
+    req: Request,
     db:Session=Depends(get_db),
-    _:User=Depends(require_admin)
+    current_user:User=Depends(require_admin)
 ):
     """
     Resolve a duplicate asset by merging its metadata into
@@ -875,6 +925,18 @@ def resolve_duplicate_asset(
         action=request.action,
         merge_metadata=request.merge_metadata
     )
+
+    log_audit_event(
+        db=db,
+        user_id=current_user.id,
+        action="RESOLVE_DUPLICATE",
+        asset_id=request.canonical_asset_id,
+        field_name="duplicate_asset_id",
+        old_value=request.duplicate_asset_id,
+        new_value=f"Action: {request.action}, Merged: {request.merge_metadata}",
+        ip_address=req.client.host if req.client else None
+    )
+    db.commit()
 
     return DuplicateResolveResponse(
         success=True,
@@ -965,6 +1027,7 @@ def get_asset(
 def add_placement(
     asset_id: str,
     payload: AssetPlacementCreate,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -981,6 +1044,16 @@ def add_placement(
         added_by=current_user.email if hasattr(current_user, "email") else str(current_user.id)
     )
     db.add(placement)
+    
+    log_audit_event(
+        db=db,
+        user_id=current_user.id,
+        action="ADD_PLACEMENT",
+        asset_id=asset_id,
+        field_name="platform",
+        new_value=f"{payload.platform}: {payload.placement_url_or_id}",
+        ip_address=request.client.host if request.client else None
+    )
     db.commit()
     db.refresh(placement)
     return placement

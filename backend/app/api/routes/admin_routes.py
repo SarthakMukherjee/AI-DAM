@@ -13,16 +13,21 @@ from app.models.user.user_model import User
 from app.models.asset.asset_model import Asset
 from app.models.analytics.asset_usage_model import AssetUsage
 from app.models.user.notification_model import Notification
+from app.models.audit.audit_log_model import AuditLog
 
 from app.schemas.user.schemas import (
     NotificationResponse,
     TopAssetsResponse,
     AssetUsageResponse
 )
+from app.schemas.audit_schema import PaginatedAuditLogs
+from app.schemas.analytics_schema import UnusedAssetsResponse
 
 from app.services.storage.cloud_service import CloudService
 from app.services.storage.expiry_service import ExpiryService
 
+from datetime import datetime, timedelta, timezone
+from typing import Optional
 import os
 import shutil
 
@@ -433,4 +438,131 @@ def check_asset_expiry(
             if status_changed
             else "No status change — asset is not expired or already restricted."
         )
-    }
+    }
+
+
+# =====================================================
+# AUDIT TRAILS & ANALYTICS REPORTS (Phase 5)
+# admin + super_admin
+# =====================================================
+
+@router.get("/audit-logs", response_model=PaginatedAuditLogs)
+def get_audit_logs(
+    asset_id: Optional[str] = None,
+    user_id: Optional[str] = None,
+    action: Optional[str] = None,
+    from_date: Optional[str] = None,
+    to_date: Optional[str] = None,
+    page: int = Query(default=1, ge=1),
+    limit: int = Query(default=50, ge=1, le=100),
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin)
+):
+    """
+    Get paginated and queryable audit logs (Admin only).
+    """
+    query = db.query(AuditLog)
+    if asset_id:
+        query = query.filter(AuditLog.asset_id == asset_id)
+    if user_id:
+        query = query.filter(AuditLog.user_id == user_id)
+    if action:
+        query = query.filter(AuditLog.action == action)
+    
+    if from_date:
+        try:
+            if len(from_date) == 10:
+                dt_from = datetime.strptime(from_date, "%Y-%m-%d")
+            else:
+                dt_from = datetime.fromisoformat(from_date.replace("Z", "+00:00"))
+            # convert offset-naive to aware if necessary (based on DB schema)
+            query = query.filter(AuditLog.timestamp >= dt_from)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid from_date format. Use YYYY-MM-DD or ISO 8601.")
+            
+    if to_date:
+        try:
+            if len(to_date) == 10:
+                dt_to = datetime.strptime(to_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59, microsecond=999999)
+            else:
+                dt_to = datetime.fromisoformat(to_date.replace("Z", "+00:00"))
+            query = query.filter(AuditLog.timestamp <= dt_to)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid to_date format. Use YYYY-MM-DD or ISO 8601.")
+
+    total = query.count()
+    pages = (total + limit - 1) // limit if total > 0 else 1
+    offset = (page - 1) * limit
+    items = query.order_by(AuditLog.timestamp.desc()).offset(offset).limit(limit).all()
+
+    return {
+        "total": total,
+        "page": page,
+        "limit": limit,
+        "pages": pages,
+        "items": items
+    }
+
+
+@router.get("/analytics/unused-assets", response_model=UnusedAssetsResponse)
+def get_unused_assets(
+    days: int = Query(default=90, ge=0),
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin)
+):
+    """
+    Get assets that are older than `days` and have zero downloads or previews.
+    """
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    
+    # Subquery of assets that have been used (downloaded or previewed)
+    used_asset_ids_subquery = (
+        db.query(AssetUsage.asset_id)
+        .filter(AssetUsage.action.in_(["download", "preview"]))
+        .distinct()
+    )
+    
+    unused_assets = (
+        db.query(Asset)
+        .filter(
+            Asset.created_at <= cutoff,
+            Asset.is_archived == False,
+            Asset.is_latest == True,
+            ~Asset.id.in_(used_asset_ids_subquery)
+        )
+        .all()
+    )
+
+    results = []
+    for asset in unused_assets:
+        expiry = ExpiryService.build_expiry_status(asset)
+        results.append({
+            "id": asset.id,
+            "original_filename": asset.original_filename,
+            "stored_filename": asset.stored_filename,
+            "mime_type": asset.mime_type,
+            "file_size": asset.file_size,
+            "metadata": asset.asset_metadata,
+            "status": asset.status,
+            "version": asset.version,
+            "parent_id": asset.parent_id,
+            "is_latest": asset.is_latest,
+            "is_archived": asset.is_archived,
+            "thumbnail_path": asset.thumbnail_path,
+            "preview_path": asset.preview_path,
+            "expired": expiry.get("expired", False),
+            "expiring_soon": expiry.get("expiring_soon", False),
+            "days_until_expiry": expiry.get("days_until_expiry"),
+            "created_at": asset.created_at,
+            "website_safe": asset.website_safe,
+            "public_use_approved": asset.public_use_approved,
+            "brand_aligned": asset.brand_aligned,
+            "alt_text": asset.alt_text
+        })
+
+    return {
+        "total": len(results),
+        "days_threshold": days,
+        "items": results
+    }
+

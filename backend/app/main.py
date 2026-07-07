@@ -21,6 +21,7 @@ from app.services.storage.storage_initializer import initialize_storage
 # CREATE ALL TABLES
 # -----------------------------------
 from app.models.asset.asset_placement_model import AssetPlacement
+from app.models.audit.audit_log_model import AuditLog
 
 Base.metadata.create_all(bind=engine)
 

@@ -2,13 +2,14 @@ import { useState, useEffect, useCallback } from "react";
 import {
   Trash2, ShieldAlert, FileText, Eye, RefreshCw,
   Merge, CheckCircle, AlertCircle, CalendarClock, Clock,
-  X, ArrowRightLeft
+  X, ArrowRightLeft, Archive, AlertTriangle
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import api, { API_BASE } from "../../api/axios";
 import Layout from "../../components/common/Layout";
 import AssetCard from "../../components/common/AssetCard";
 import AssetModal from "../../components/common/AssetModal";
+import AuditLogViewer from "./AuditLogViewer";
 import "../../styles/admindashboard.css";
 
 const AdminDashboard = () => {
@@ -24,6 +25,13 @@ const AdminDashboard = () => {
   const [expiringAssets, setExpiringAssets] = useState([]);
   const [expiringLoading, setExpiringLoading] = useState(false);
   const [checkingExpiry, setCheckingExpiry] = useState(null); // asset_id being checked
+
+  // Unused assets state
+  const [unusedAssets, setUnusedAssets] = useState([]);
+  const [unusedLoading, setUnusedLoading] = useState(false);
+  const [unusedDays, setUnusedDays] = useState(90);
+  const [selectedUnusedIds, setSelectedUnusedIds] = useState([]);
+  const [bulkActionLoading, setBulkActionLoading] = useState(false);
 
   // Resolve Duplicate modal state
   const [resolveGroup, setResolveGroup] = useState(null); // the duplicate group object
@@ -99,6 +107,57 @@ const AdminDashboard = () => {
     } finally {
       setCheckingExpiry(null);
     }
+  };
+
+  // Fetch unused assets
+  const fetchUnusedAssets = async (daysVal = unusedDays) => {
+    setUnusedLoading(true);
+    try {
+      const res = await api.get(`/admin/analytics/unused-assets?days=${daysVal}`);
+      setUnusedAssets(res.data.items || []);
+      setSelectedUnusedIds([]); // reset selection
+    } catch (err) {
+      console.error("Failed to fetch unused assets:", err);
+    } finally {
+      setUnusedLoading(false);
+    }
+  };
+
+  const handleBulkAction = async (actionType) => {
+    if (selectedUnusedIds.length === 0) return;
+    const confirmMessage = `Are you sure you want to ${actionType} ${selectedUnusedIds.length} assets?`;
+    if (!window.confirm(confirmMessage)) return;
+
+    setBulkActionLoading(true);
+    try {
+      await Promise.all(
+        selectedUnusedIds.map((id) => api.patch(`/assets/${id}/${actionType}`))
+      );
+      alert(`Successfully ${actionType}d selected assets.`);
+      fetchUnusedAssets(unusedDays);
+      fetchData(); // refresh counts
+    } catch (err) {
+      console.error(`Bulk ${actionType} failed:`, err);
+      alert(`Bulk ${actionType} failed. Some assets may not have been updated.`);
+    } finally {
+      setBulkActionLoading(false);
+    }
+  };
+
+  const handleSelectAllUnused = (e) => {
+    if (e.target.checked) {
+      setSelectedUnusedIds(unusedAssets.map((a) => a.id));
+    } else {
+      setSelectedUnusedIds([]);
+    }
+  };
+
+  const handleSelectUnused = (assetId) => {
+    setSelectedUnusedIds((prev) =>
+      prev.includes(assetId)
+        ? prev.filter((id) => id !== assetId)
+        : [...prev, assetId]
+    );
   };
 
   // -----------------------------------

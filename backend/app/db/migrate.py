@@ -61,6 +61,12 @@ _ASSET_USAGE_COLUMNS: list[tuple[str, str]] = [
     ("user_id", "VARCHAR"),
 ]
 
+# Phase 5.1 — ensure user_id is on audit_logs table
+_AUDIT_LOG_COLUMNS: list[tuple[str, str]] = [
+    ("user_id", "VARCHAR"),
+]
+
+
 
 def upgrade_db_schema() -> None:
     """
@@ -103,6 +109,18 @@ def upgrade_db_schema() -> None:
                 print(f"[MIGRATE] Column ensured: asset_usage.{col_name}")
             except Exception as e:
                 print(f"[MIGRATE] Warning — asset_usage.{col_name}: {e}")
+
+        # Audit Logs Table
+        for col_name, col_type in _AUDIT_LOG_COLUMNS:
+            ddl = text(
+                f"ALTER TABLE audit_logs "
+                f"ADD COLUMN IF NOT EXISTS {col_name} {col_type};"
+            )
+            try:
+                conn.execute(ddl)
+                print(f"[MIGRATE] Column ensured: audit_logs.{col_name}")
+            except Exception as e:
+                print(f"[MIGRATE] Warning — audit_logs.{col_name}: {e}")
 
         conn.commit()
 
