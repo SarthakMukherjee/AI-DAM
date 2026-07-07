@@ -610,6 +610,141 @@ Expired assets transition to `restricted` automatically without introducing a ne
 * **Frontend UI:**
   * Add "Metadata Gaps" card/table in Admin Dashboard listing asset name, uploader, current completeness score (with progress bar), and a quick link to edit metadata.
 
+
+### Backend Implementation
+
+#### Endpoint
+
+**GET** `/admin/analytics/missing-metadata`
+
+Returns all active, latest-version assets whose metadata completeness score falls below a configurable threshold.
+
+#### Query Parameters
+
+| Parameter | Type | Default | Description |
+|----------|------|---------|-------------|
+| `threshold` | Integer | `60` | Returns assets whose `completeness_score` is lower than this value. Accepts values between `0` and `100`. |
+
+---
+
+### Filtering Logic
+
+The endpoint returns assets satisfying all of the following conditions:
+
+- `Asset.is_latest == True`
+- `Asset.is_archived == False`
+- `Asset.completeness_score < threshold`
+
+Results are ordered by:
+
+1. `completeness_score ASC`
+2. `created_at DESC`
+
+This prioritizes the lowest-quality assets while keeping newer assets grouped together when scores are equal.
+
+---
+
+### Response Schema
+
+```python
+class MissingMetadataResponse(BaseModel):
+    total: int
+    threshold: int
+    items: List[AssetResponse]
+```
+
+The endpoint reuses the existing `AssetResponse` schema to avoid duplicate asset representations across analytics APIs.
+
+---
+
+### Example Response
+
+```json
+{
+  "total": 14,
+  "threshold": 60,
+  "items": [
+    {
+      "id": "...",
+      "original_filename": "campaign_banner.png",
+      "completeness_score": 42,
+      ...
+    }
+  ]
+}
+```
+
+---
+
+### Files Added / Modified
+
+#### Modified
+
+```
+backend/app/api/routes/admin_routes.py
+```
+
+Added:
+
+- `GET /admin/analytics/missing-metadata`
+
+---
+
+```
+backend/app/schemas/analytics_schema.py
+```
+
+Added:
+
+- `MissingMetadataResponse`
+
+---
+
+### Database Changes
+
+No database schema changes were required.
+
+The endpoint utilizes existing Asset fields:
+
+- `completeness_score`
+- `is_latest`
+- `is_archived`
+- `created_at`
+
+No migrations were introduced.
+
+---
+
+### Architectural Notes
+
+- Reuses the existing `AssetResponse` schema.
+- Follows the same response structure as the Unused Assets analytics endpoint.
+- Uses FastAPI query validation to restrict threshold values to `0–100`.
+- Designed for direct integration into the Admin Analytics dashboard.
+
+---
+
+### Backend Status
+
+| Component | Status |
+|-----------|--------|
+| Route | ✅ Complete |
+| Filtering Logic | ✅ Complete |
+| Response Schema | ✅ Complete |
+| Validation | ✅ Complete |
+| Database Changes | Not Required |
+| Migration | Not Required |
+
+---
+
+### Remaining Work
+
+Frontend implementation:
+
+- Add **Metadata Gaps** analytics view.
+- Display completeness scores using a progress indicator.
+- Provide a configurable threshold filter.
+- Add a quick action to navigate to metadata editing for each asset.
 ---
 
 ### FEATURE 5.6: Time-to-Approval Analytics Report
