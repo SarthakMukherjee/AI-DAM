@@ -94,6 +94,13 @@ const AssetCard = ({
                 loading="lazy" 
                 onError={() => setImgError(true)}
               />
+            ) : asset.mime_type === "application/pdf" ? (
+              <iframe 
+                src={previewUrl} 
+                title={assetName}
+                style={{ width: '100%', height: '100%', border: 'none', pointerEvents: 'none', overflow: 'hidden' }}
+                scrolling="no"
+              />
             ) : (
               <div className="asset-card-icon">{icon}</div>
             )}
