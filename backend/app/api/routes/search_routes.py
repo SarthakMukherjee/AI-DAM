@@ -7,6 +7,7 @@ from app.api.dependencies.database import get_db
 from app.api.dependencies.auth_dependency import get_current_user, require_admin
 from app.models.user.user_model import User
 from app.models.asset.asset_model import Asset
+from app.models.analytics.search_log_model import SearchLog
 
 from app.ai.retrieval.semantic_search_service import SemanticSearchService
 from app.ai.retrieval.hybrid_search_service import HybridSearchService
@@ -65,6 +66,21 @@ async def semantic_search(
         )
 
     results = [SemanticSearchResult(**r) for r in raw_results]
+    
+    # Log the search
+    try:
+        search_log = SearchLog(
+            query=body.query,
+            search_type="semantic",
+            results_count=len(results),
+            user_id=current_user.id
+        )
+        db.add(search_log)
+        db.commit()
+    except Exception as e:
+        print(f"Failed to log semantic search: {e}")
+        db.rollback()
+
     return SemanticSearchResponse(
         query=body.query,
         total=len(results),
@@ -111,6 +127,21 @@ async def hybrid_search(
         )
 
     results = [HybridSearchResult(**r) for r in raw_results]
+    
+    # Log the search
+    try:
+        search_log = SearchLog(
+            query=body.query,
+            search_type="hybrid",
+            results_count=len(results),
+            user_id=current_user.id
+        )
+        db.add(search_log)
+        db.commit()
+    except Exception as e:
+        print(f"Failed to log hybrid search: {e}")
+        db.rollback()
+
     return HybridSearchResponse(
         query=body.query,
         total=len(results),

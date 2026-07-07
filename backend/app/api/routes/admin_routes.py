@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import StreamingResponse
 
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -14,6 +15,7 @@ from app.models.asset.asset_model import Asset
 from app.models.analytics.asset_usage_model import AssetUsage
 from app.models.user.notification_model import Notification
 from app.models.audit.audit_log_model import AuditLog
+from app.models.analytics.search_log_model import SearchLog
 
 from app.schemas.user.schemas import (
     NotificationResponse,
@@ -21,7 +23,12 @@ from app.schemas.user.schemas import (
     AssetUsageResponse
 )
 from app.schemas.audit_schema import PaginatedAuditLogs
-from app.schemas.analytics_schema import UnusedAssetsResponse
+from app.schemas.analytics_schema import (
+    UnusedAssetsResponse,
+    MissingMetadataResponse,
+    ApprovalTimeResponse,
+    SearchGapResponse
+)
 
 from app.services.storage.cloud_service import CloudService
 from app.services.storage.expiry_service import ExpiryService
@@ -30,6 +37,8 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 import os
 import shutil
+import io
+import csv
 
 
 router = APIRouter(
@@ -566,3 +575,246 @@ def get_unused_assets(
         "items": results
     }
 
+
+@router.get("/analytics/missing-metadata", response_model=MissingMetadataResponse)
+def get_missing_metadata(
+    threshold: int = Query(default=60, ge=0, le=100),
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin)
+):
+    """
+    Get active, latest-version assets whose metadata completeness score falls below the threshold.
+    """
+    assets = (
+        db.query(Asset)
+        .filter(
+            Asset.is_latest == True,
+            Asset.is_archived == False,
+            Asset.completeness_score < threshold
+        )
+        .order_by(Asset.completeness_score.asc(), Asset.created_at.desc())
+        .all()
+    )
+
+    results = []
+    for asset in assets:
+        expiry = ExpiryService.build_expiry_status(asset)
+        results.append({
+            "id": asset.id,
+            "original_filename": asset.original_filename,
+            "stored_filename": asset.stored_filename,
+            "mime_type": asset.mime_type,
+            "file_size": asset.file_size,
+            "metadata": asset.asset_metadata,
+            "status": asset.status,
+            "version": asset.version,
+            "parent_id": asset.parent_id,
+            "is_latest": asset.is_latest,
+            "is_archived": asset.is_archived,
+            "thumbnail_path": asset.thumbnail_path,
+            "preview_path": asset.preview_path,
+            "expired": expiry.get("expired", False),
+            "expiring_soon": expiry.get("expiring_soon", False),
+            "days_until_expiry": expiry.get("days_until_expiry"),
+            "created_at": asset.created_at,
+            "website_safe": asset.website_safe,
+            "public_use_approved": asset.public_use_approved,
+            "brand_aligned": asset.brand_aligned,
+            "alt_text": asset.alt_text,
+            "completeness_score": asset.completeness_score,
+        })
+
+    return {
+        "total": len(results),
+        "threshold": threshold,
+        "items": results
+    }
+
+@router.get("/analytics/approval-times", response_model=ApprovalTimeResponse)
+def get_approval_times(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin)
+):
+    """
+    Measure workflow bottleneck metrics (average time spent in pending_review before being approved or rejected).
+    """
+    # We join AuditLog with Asset. We find AuditLogs where action in ('APPROVE', 'REJECT').
+    # We compute the difference between AuditLog.timestamp and Asset.created_at (as a proxy for pending review duration).
+    
+    logs = (
+        db.query(AuditLog, Asset)
+        .join(Asset, AuditLog.asset_id == Asset.id)
+        .filter(AuditLog.action.in_(["APPROVE", "REJECT"]))
+        .all()
+    )
+    
+    if not logs:
+        return {
+            "global_metrics": {
+                "average_hours": 0.0,
+                "total_approved": 0,
+                "total_rejected": 0
+            },
+            "by_domain": {}
+        }
+        
+    total_seconds = 0
+    total_approved = 0
+    total_rejected = 0
+    domain_seconds = {}
+    domain_counts = {}
+    
+    for log, asset in logs:
+        if log.action == "APPROVE":
+            total_approved += 1
+        elif log.action == "REJECT":
+            total_rejected += 1
+            
+        # compute duration
+        if log.timestamp and asset.created_at:
+            delta = log.timestamp - asset.created_at
+            seconds = delta.total_seconds()
+            if seconds < 0:
+                seconds = 0
+            
+            total_seconds += seconds
+            
+            # extract domain
+            domain = "Unknown"
+            if asset.asset_metadata and "business" in asset.asset_metadata:
+                domain = asset.asset_metadata["business"].get("domain") or "Unknown"
+                
+            if domain not in domain_seconds:
+                domain_seconds[domain] = 0
+                domain_counts[domain] = 0
+            domain_seconds[domain] += seconds
+            domain_counts[domain] += 1
+            
+    total_count = total_approved + total_rejected
+    avg_hours = (total_seconds / total_count) / 3600.0 if total_count > 0 else 0.0
+    
+    by_domain = {}
+    for dom in domain_seconds:
+        by_domain[dom] = (domain_seconds[dom] / domain_counts[dom]) / 3600.0
+        
+    return {
+        "global_metrics": {
+            "average_hours": avg_hours,
+            "total_approved": total_approved,
+            "total_rejected": total_rejected
+        },
+        "by_domain": by_domain
+    }
+
+@router.get("/analytics/search-gaps", response_model=SearchGapResponse)
+def get_search_gaps(
+    min_results: int = Query(default=2, ge=0),
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin)
+):
+    """
+    Return top search queries where average results_count < min_results.
+    """
+    gaps = (
+        db.query(
+            SearchLog.query,
+            SearchLog.search_type,
+            func.count(SearchLog.id).label("count"),
+            func.avg(SearchLog.results_count).label("avg_results")
+        )
+        .group_by(SearchLog.query, SearchLog.search_type)
+        .having(func.avg(SearchLog.results_count) < min_results)
+        .order_by(func.count(SearchLog.id).desc())
+        .limit(50)
+        .all()
+    )
+    
+    items = []
+    for row in gaps:
+        items.append({
+            "query": row.query,
+            "search_type": row.search_type,
+            "count": row.count,
+            "avg_results": float(row.avg_results)
+        })
+        
+    return {"items": items}
+
+@router.get("/analytics/export")
+def export_analytics(
+    report_type: str = Query(..., description="unused | missing_meta | audit | most_used | approval_times | search_gaps"),
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin)
+):
+    """
+    Export analytics data as CSV.
+    """
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    if report_type == "unused":
+        writer.writerow(["Asset ID", "Original Filename", "File Size", "Created At", "Status"])
+        cutoff = datetime.now(timezone.utc) - timedelta(days=90)
+        used_ids = db.query(AssetUsage.asset_id).filter(AssetUsage.action.in_(["download", "preview"])).distinct()
+        assets = db.query(Asset).filter(Asset.created_at <= cutoff, Asset.is_archived == False, Asset.is_latest == True, ~Asset.id.in_(used_ids)).all()
+        for a in assets:
+            writer.writerow([a.id, a.original_filename, a.file_size, a.created_at, a.status])
+            
+    elif report_type == "missing_meta":
+        writer.writerow(["Asset ID", "Original Filename", "Completeness Score", "Created At", "Status"])
+        assets = db.query(Asset).filter(Asset.is_latest == True, Asset.is_archived == False, Asset.completeness_score < 60).all()
+        for a in assets:
+            writer.writerow([a.id, a.original_filename, getattr(a, 'completeness_score', 0), a.created_at, a.status])
+            
+    elif report_type == "audit":
+        writer.writerow(["Log ID", "User ID", "Asset ID", "Action", "Field", "Old Value", "New Value", "Timestamp"])
+        logs = db.query(AuditLog).order_by(AuditLog.timestamp.desc()).limit(1000).all()
+        for log in logs:
+            writer.writerow([log.id, log.user_id, log.asset_id, log.action, log.field_name, log.old_value, log.new_value, log.timestamp])
+            
+    elif report_type == "most_used":
+        writer.writerow(["Asset ID", "Original Filename", "Total Usage"])
+        results = (
+            db.query(Asset.id, Asset.original_filename, func.sum(AssetUsage.usage_count).label("total_usage"))
+            .join(AssetUsage, Asset.id == AssetUsage.asset_id)
+            .group_by(Asset.id, Asset.original_filename)
+            .order_by(func.sum(AssetUsage.usage_count).desc())
+            .limit(100).all()
+        )
+        for r in results:
+            writer.writerow([r.id, r.original_filename, r.total_usage])
+            
+    elif report_type == "approval_times":
+        writer.writerow(["Asset ID", "Action", "User ID", "Duration (Hours)", "Timestamp"])
+        logs = (
+            db.query(AuditLog, Asset)
+            .join(Asset, AuditLog.asset_id == Asset.id)
+            .filter(AuditLog.action.in_(["APPROVE", "REJECT"]))
+            .all()
+        )
+        for log, asset in logs:
+            delta = log.timestamp - asset.created_at
+            hours = delta.total_seconds() / 3600.0 if delta.total_seconds() > 0 else 0
+            writer.writerow([asset.id, log.action, log.user_id, f"{hours:.2f}", log.timestamp])
+            
+    elif report_type == "search_gaps":
+        writer.writerow(["Query", "Search Type", "Search Count", "Average Results"])
+        gaps = (
+            db.query(SearchLog.query, SearchLog.search_type, func.count(SearchLog.id).label("count"), func.avg(SearchLog.results_count).label("avg_results"))
+            .group_by(SearchLog.query, SearchLog.search_type)
+            .having(func.avg(SearchLog.results_count) < 2)
+            .order_by(func.count(SearchLog.id).desc())
+            .limit(100).all()
+        )
+        for r in gaps:
+            writer.writerow([r.query, r.search_type, r.count, f"{r.avg_results:.2f}"])
+            
+    else:
+        raise HTTPException(status_code=400, detail="Invalid report_type")
+        
+    output.seek(0)
+    return StreamingResponse(
+        output,
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=analytics_{report_type}.csv"}
+    )

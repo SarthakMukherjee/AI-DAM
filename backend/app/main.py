@@ -22,6 +22,7 @@ from app.services.storage.storage_initializer import initialize_storage
 # -----------------------------------
 from app.models.asset.asset_placement_model import AssetPlacement
 from app.models.audit.audit_log_model import AuditLog
+from app.models.analytics.search_log_model import SearchLog
 
 Base.metadata.create_all(bind=engine)
 

@@ -10,6 +10,7 @@ import Layout from "../../components/common/Layout";
 import AssetCard from "../../components/common/AssetCard";
 import AssetModal from "../../components/common/AssetModal";
 import AuditLogViewer from "./AuditLogViewer";
+import AnalyticsDashboard from "./AnalyticsDashboard";
 import "../../styles/admindashboard.css";
 
 const AdminDashboard = () => {
@@ -355,6 +356,12 @@ const AdminDashboard = () => {
               </span>
             )}
           </button>
+          <button
+            className={`filter-tab ${filter === "analytics" ? "filter-tab--active" : ""}`}
+            onClick={() => setFilter("analytics")}
+          >
+            Analytics & Reports
+          </button>
         </div>
 
         {/* MAIN CONTENT */}
@@ -465,6 +472,8 @@ const AdminDashboard = () => {
             </div>
           )
 
+        ) : filter === "analytics" ? (
+          <AnalyticsDashboard />
         ) : filter === "duplicates" ? (
           /* ===================== DUPLICATES TAB ===================== */
           duplicatesLoading ? (
