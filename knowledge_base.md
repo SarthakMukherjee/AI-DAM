@@ -316,9 +316,9 @@ Remove duplicate vector
 
 #### Pending Frontend Work
 
-**⏳ Phase 2.4.5 — Duplicate Resolution UI**
+**✅ Phase 2.4.5 — Duplicate Resolution UI (Completed)**
 
-Status: Not yet implemented.
+Status: Implemented.
 
 Location:
 
@@ -327,14 +327,6 @@ frontend/src/pages/admin/AdminDashboard.jsx
 ```
 
 Current UI:
-
-```
-View Details
-Retire
-Delete
-```
-
-Target UI:
 
 ```
 Resolve Duplicate
@@ -351,22 +343,22 @@ Resolve
 Implementation tasks:
 
 *Phase 2.4.5.1* — Update React logic. Add:
-* Resolve modal state.
-* Canonical asset selection state.
-* Action selection state.
-* Metadata merge toggle.
-* Resolve API handler.
-* Duplicate refresh after completion.
+* ✅ Resolve modal state.
+* ✅ Canonical asset selection state.
+* ✅ Action selection state.
+* ✅ Metadata merge toggle.
+* ✅ Resolve API handler.
+* ✅ Duplicate refresh after completion.
 
 *Phase 2.4.5.2* — Build enterprise Resolve Duplicate modal.
 
 Modal includes:
-* Duplicate asset summary.
-* Radio selection for canonical asset.
-* Merge metadata checkbox.
-* Action selection: Retire Duplicate / Delete Duplicate.
-* Cancel button.
-* Resolve button.
+* ✅ Duplicate asset summary.
+* ✅ Radio selection for canonical asset.
+* ✅ Merge metadata checkbox.
+* ✅ Action selection: Retire Duplicate / Delete Duplicate.
+* ✅ Cancel button.
+* ✅ Resolve button.
 
 The modal submits: `POST /assets/resolve-duplicate`
 
@@ -377,12 +369,12 @@ frontend/src/styles/admindashboard.css
 ```
 
 Add styling for:
-* Resolve modal.
-* Canonical asset selector.
-* Radio group.
-* Metadata checkbox.
-* Resolve button.
-* Responsive layout.
+* ✅ Resolve modal.
+* ✅ Canonical asset selector.
+* ✅ Radio group.
+* ✅ Metadata checkbox.
+* ✅ Resolve button.
+* ✅ Responsive layout.
 
 #### Verification Checklist
 
@@ -397,11 +389,11 @@ Backend completed:
 * ✅ Admin RBAC.
 * ✅ Backward compatibility.
 
-Frontend pending:
-* ⏳ Resolve Duplicate modal.
-* ⏳ Canonical asset selection.
-* ⏳ Resolve API integration.
-* ⏳ Updated duplicate management UI.
+Frontend completed:
+* ✅ Resolve Duplicate modal.
+* ✅ Canonical asset selection.
+* ✅ Resolve API integration.
+* ✅ Updated duplicate management UI.
 
 ---
 
@@ -518,18 +510,18 @@ Returned responses now include:
 Expired assets are automatically transitioned to `restricted` during retrieval if required.
 
 
-## Pending Development
+## ✅ Completed Development
 
-The following items remain to complete Feature 3.3:
+All items for Feature 3.3 have been completed:
 
-- Integrate expiry status into asset listing endpoints.
-- Implement `GET /admin/assets/expiring`.
-- Implement `POST /admin/assets/{asset_id}/check-expiry`.
-- Add expiry dashboard components in the frontend.
-- Add Expired / Expiring Soon badges in Asset Cards.
-- Display expiry information on Asset Detail page.
-- Add admin expiry filters.
-- Complete frontend API integration.
+- ✅ Integrate expiry status into asset listing endpoints.
+- ✅ Implement `GET /admin/assets/expiring`.
+- ✅ Implement `POST /admin/assets/{asset_id}/check-expiry`.
+- ✅ Add expiry dashboard components in the frontend.
+- ✅ Add Expired / Expiring Soon badges in Asset Cards.
+- ✅ Display expiry information on Asset Detail page.
+- ✅ Add admin expiry filters.
+- ✅ Complete frontend API integration.
 
 ---
 
