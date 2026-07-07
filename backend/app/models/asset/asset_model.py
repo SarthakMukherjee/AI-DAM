@@ -106,4 +106,12 @@ class Asset(Base):
     video_transcript = Column(Text, nullable=True)
 
     # Aspect ratio string e.g. "16:9", "9:16", "1:1"
-    video_aspect_ratio = Column(String(20), nullable=True)
+    video_aspect_ratio = Column(String(20), nullable=True)
+
+    # -------------------------------------------------------
+    # MARKETING GOVERNANCE FLAGS — Phase 7.1
+    # -------------------------------------------------------
+    website_safe = Column(Boolean, default=False)
+    public_use_approved = Column(Boolean, default=False)
+    brand_aligned = Column(Boolean, default=True)
+    alt_text = Column(Text, nullable=True)

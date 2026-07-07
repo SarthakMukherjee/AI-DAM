@@ -40,8 +40,11 @@ from app.utils.image_hash import (
 )
 from app.schemas.asset_schema import (
     DuplicateResolveRequest,
-    DuplicateResolveResponse
+    DuplicateResolveResponse,
+    AssetPlacementCreate,
+    AssetPlacementResponse
 )
+from app.models.asset.asset_placement_model import AssetPlacement
 from app.services.storage.duplicate_merge_service import (
     DuplicateMergeService
 )
@@ -360,6 +363,9 @@ def submit_for_review(
 @router.get("/{asset_id}/download")
 def download_asset(
     asset_id: str,
+    format: str = None,
+    width: int = None,
+    quality: str = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -381,7 +387,19 @@ def download_asset(
 
     # cloud URL — redirect browser directly
     if is_cloud_url(asset.storage_path):
-        return RedirectResponse(url=asset.storage_path)
+        target_url = asset.storage_path
+        if "res.cloudinary.com" in target_url:
+            transforms = []
+            if format: transforms.append(f"f_{format}")
+            if quality: transforms.append(f"q_{quality}")
+            if width: transforms.append(f"w_{width}")
+            
+            if transforms:
+                transform_str = ",".join(transforms)
+                parts = target_url.split("/upload/")
+                if len(parts) == 2:
+                    target_url = f"{parts[0]}/upload/{transform_str}/{parts[1]}"
+        return RedirectResponse(url=target_url)
 
     # local file — serve directly
     file_path = asset.storage_path
@@ -938,3 +956,46 @@ def get_asset(
         "metadata": asset.asset_metadata,
         **expiry,
     }
+
+# -----------------------------------
+# ASSET PLACEMENTS
+# -----------------------------------
+
+@router.post("/{asset_id}/placements", response_model=AssetPlacementResponse)
+def add_placement(
+    asset_id: str,
+    payload: AssetPlacementCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    asset = db.query(Asset).filter(Asset.id == asset_id).first()
+    if not asset:
+        raise HTTPException(status_code=404, detail="Asset not found")
+        
+    check_restricted_access(asset, current_user)
+    
+    placement = AssetPlacement(
+        asset_id=asset_id,
+        platform=payload.platform,
+        placement_url_or_id=payload.placement_url_or_id,
+        added_by=current_user.email if hasattr(current_user, "email") else str(current_user.id)
+    )
+    db.add(placement)
+    db.commit()
+    db.refresh(placement)
+    return placement
+
+@router.get("/{asset_id}/placements")
+def list_placements(
+    asset_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    asset = db.query(Asset).filter(Asset.id == asset_id).first()
+    if not asset:
+        raise HTTPException(status_code=404, detail="Asset not found")
+        
+    check_restricted_access(asset, current_user)
+    
+    placements = db.query(AssetPlacement).filter(AssetPlacement.asset_id == asset_id).all()
+    return placements

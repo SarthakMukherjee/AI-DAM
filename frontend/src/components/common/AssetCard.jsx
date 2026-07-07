@@ -1,4 +1,4 @@
-import { Image, Video, FileText, Folder, Clock, AlertCircle } from "lucide-react";
+import { Image, Video, FileText, Folder, Clock, AlertCircle, ShieldCheck } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import "../../styles/assetcard.css";
@@ -109,6 +109,22 @@ const AssetCard = ({
               <div className="asset-expiry-badge asset-expiry-badge--soon" title={`Expires in ${daysUntilExpiry} day${daysUntilExpiry === 1 ? '' : 's'}`}>
                 <Clock size={11} />
                 {daysUntilExpiry !== null ? `${daysUntilExpiry}d left` : 'EXPIRING SOON'}
+              </div>
+            )}
+
+            {/* GOVERNANCE BADGES */}
+            {(asset.website_safe || asset.public_use_approved) && (
+              <div className="asset-governance-badges" style={{ position: "absolute", top: "8px", left: "8px", display: "flex", gap: "4px" }}>
+                {asset.website_safe && (
+                  <div className="badge" style={{ backgroundColor: "#10b981", color: "white", padding: "2px 6px", fontSize: "10px", borderRadius: "12px", display: "flex", alignItems: "center", gap: "2px" }} title="Website Safe">
+                    <ShieldCheck size={10} /> Web
+                  </div>
+                )}
+                {asset.public_use_approved && (
+                  <div className="badge" style={{ backgroundColor: "#10b981", color: "white", padding: "2px 6px", fontSize: "10px", borderRadius: "12px", display: "flex", alignItems: "center", gap: "2px" }} title="Public Use Approved">
+                    <ShieldCheck size={10} /> Public
+                  </div>
+                )}
               </div>
             )}
 

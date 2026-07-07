@@ -20,6 +20,7 @@ from app.services.storage.storage_initializer import initialize_storage
 # -----------------------------------
 # CREATE ALL TABLES
 # -----------------------------------
+from app.models.asset.asset_placement_model import AssetPlacement
 
 Base.metadata.create_all(bind=engine)
 

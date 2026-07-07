@@ -40,6 +40,7 @@ const ReviewQueue = () => {
   const [loading, setLoading] = useState(true);
   const [rejectState, setRejectState] = useState({ id: null, reason: "", category: "" });
   const [actionLoading, setActionLoading] = useState(null); // stores asset ID being actioned
+  const [governanceFlags, setGovernanceFlags] = useState({});
 
   useEffect(() => {
     const fetchQueue = async () => {
@@ -60,7 +61,8 @@ const ReviewQueue = () => {
   const handleApprove = async (assetId) => {
     setActionLoading(assetId);
     try {
-      await api.post(`/reviewer/assets/${assetId}/approve`);
+      const flags = governanceFlags[assetId] || { website_safe: false, public_use_approved: false };
+      await api.post(`/reviewer/assets/${assetId}/approve`, flags);
       removeFromQueue(assetId);
       setSelectedAsset(null);
     } catch { alert("Approval failed. Please try again."); }
@@ -221,15 +223,34 @@ const ReviewQueue = () => {
                         </div>
                       </div>
                     ) : (
-                      <div className="review-card-actions">
-                        <button
-                          className="review-btn review-btn--approve"
-                          onClick={() => handleApprove(asset.id)}
-                          disabled={isLoading}
-                        >
-                          <CheckCircle2 size={16} />
-                          {isLoading ? "..." : "Approve"}
-                        </button>
+                      <div className="review-card-actions-wrapper" style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                        <div className="governance-toggles" style={{ display: "flex", gap: "12px", fontSize: "0.85rem", color: "#64748b" }}>
+                          <label style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer" }}>
+                            <input 
+                              type="checkbox" 
+                              checked={governanceFlags[asset.id]?.website_safe || false}
+                              onChange={(e) => setGovernanceFlags(prev => ({...prev, [asset.id]: {...(prev[asset.id]||{}), website_safe: e.target.checked}}))}
+                            />
+                            Website Safe
+                          </label>
+                          <label style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer" }}>
+                            <input 
+                              type="checkbox" 
+                              checked={governanceFlags[asset.id]?.public_use_approved || false}
+                              onChange={(e) => setGovernanceFlags(prev => ({...prev, [asset.id]: {...(prev[asset.id]||{}), public_use_approved: e.target.checked}}))}
+                            />
+                            Public Use
+                          </label>
+                        </div>
+                        <div className="review-card-actions">
+                          <button
+                            className="review-btn review-btn--approve"
+                            onClick={() => handleApprove(asset.id)}
+                            disabled={isLoading}
+                          >
+                            <CheckCircle2 size={16} />
+                            {isLoading ? "..." : "Approve"}
+                          </button>
 
                         <button
                           className="review-btn review-btn--reject"
@@ -258,6 +279,7 @@ const ReviewQueue = () => {
                           <Lock size={16} />
                           Restrict
                         </button>
+                      </div>
                       </div>
                     )}
                   </div>

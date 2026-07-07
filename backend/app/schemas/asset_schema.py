@@ -46,6 +46,14 @@ class AssetResponse(BaseModel):
 
     created_at: datetime
 
+    # ================================================
+    # FEATURE 7.1 - Marketing Context Flags
+    # ================================================
+    website_safe: bool = False
+    public_use_approved: bool = False
+    brand_aligned: bool = True
+    alt_text: Optional[str] = None
+
     class Config: 
         from_attributes = True
 
@@ -88,4 +96,19 @@ class DuplicateResolveResponse(BaseModel):
     canonical_asset_id: str
     duplicate_asset_id: str
     action: str
-    metadata_merged: bool
+    metadata_merged: bool
+
+class AssetPlacementCreate(BaseModel):
+    platform: str
+    placement_url_or_id: str
+
+class AssetPlacementResponse(BaseModel):
+    id: str
+    asset_id: str
+    platform: str
+    placement_url_or_id: str
+    added_by: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True

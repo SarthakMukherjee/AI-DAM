@@ -49,6 +49,9 @@ const AssetDetail = () => {
   const [copied, setCopied] = useState(false);
   const [versions, setVersions] = useState([]);
   const [similarAssets, setSimilarAssets] = useState([]);
+  const [placements, setPlacements] = useState([]);
+  const [newPlacement, setNewPlacement] = useState({ platform: "", placement_url_or_id: "" });
+  const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
 
   useEffect(() => {
     const fetchAssetAndExtras = async () => {
@@ -66,11 +69,6 @@ const AssetDetail = () => {
           setVersions([]);
         }
 
-        // Fetch similar assets if it's an image
-        if (assetRes.data.mime_type?.startsWith("image/")) {
-          try {
-            const similarRes = await api.get(`/assets/${assetId}/similar`);
-            setSimilarAssets(similarRes.data || []);
           } catch (err) {
             // 400 = asset has no perceptual hash, which is expected for some images
             if (err.response?.status !== 400) {
@@ -80,6 +78,15 @@ const AssetDetail = () => {
           }
         } else {
           setSimilarAssets([]);
+        }
+
+        // Fetch placements
+        try {
+          const placementsRes = await api.get(`/assets/${assetId}/placements`);
+          setPlacements(placementsRes.data || []);
+        } catch (err) {
+          console.error("Failed to fetch placements:", err);
+          setPlacements([]);
         }
 
       } catch (err) {
@@ -92,18 +99,43 @@ const AssetDetail = () => {
     fetchAssetAndExtras();
   }, [assetId, navigate]);
 
-  const handleDownload = async () => {
+  const executeDownload = async (format = null, width = null, quality = null) => {
     try {
-      const res = await api.get(`/assets/${assetId}/download`, { responseType: "blob" });
+      let query = [];
+      if (format) query.push(`format=${format}`);
+      if (width) query.push(`width=${width}`);
+      if (quality) query.push(`quality=${quality}`);
+      const queryStr = query.length > 0 ? `?${query.join("&")}` : "";
+
+      const res = await api.get(`/assets/${assetId}/download${queryStr}`, { responseType: "blob" });
       const url = window.URL.createObjectURL(new Blob([res.data]));
       const link = document.createElement("a");
       link.href = url;
-      link.download = asset.original_filename;
+      
+      let filename = asset.original_filename;
+      if (format) {
+         const parts = filename.split(".");
+         parts.pop();
+         filename = `${parts.join(".")}.${format}`;
+      }
+      
+      link.download = filename;
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
     } catch { alert("Download failed."); }
+    setDownloadMenuOpen(false);
+  };
+
+  const handleAddPlacement = async (e) => {
+    e.preventDefault();
+    if (!newPlacement.platform || !newPlacement.placement_url_or_id) return;
+    try {
+      const res = await api.post(`/assets/${assetId}/placements`, newPlacement);
+      setPlacements((prev) => [...prev, res.data]);
+      setNewPlacement({ platform: "", placement_url_or_id: "" });
+    } catch { alert("Failed to add placement"); }
   };
 
   const copyId = async () => {
@@ -151,10 +183,29 @@ const AssetDetail = () => {
             Back
           </button>
           <div className="asset-detail-actions">
-            <button className="asset-detail-btn-primary" onClick={handleDownload}>
-              <Download size={16} />
-              Download
-            </button>
+            <div style={{ position: "relative" }}>
+              <button 
+                className="asset-detail-btn-primary" 
+                onClick={() => setDownloadMenuOpen(!downloadMenuOpen)}
+                style={{ display: "flex", gap: "8px", alignItems: "center" }}
+              >
+                <Download size={16} />
+                Download Options
+              </button>
+              {downloadMenuOpen && (
+                <div style={{ position: "absolute", top: "100%", right: 0, marginTop: "4px", background: "white", border: "1px solid #e2e8f0", borderRadius: "6px", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)", zIndex: 50, minWidth: "200px" }}>
+                  <button style={{ width: "100%", textAlign: "left", padding: "10px 14px", border: "none", background: "transparent", cursor: "pointer", fontSize: "0.85rem", borderBottom: "1px solid #f1f5f9" }} onClick={() => executeDownload()}>
+                    Original
+                  </button>
+                  <button style={{ width: "100%", textAlign: "left", padding: "10px 14px", border: "none", background: "transparent", cursor: "pointer", fontSize: "0.85rem", borderBottom: "1px solid #f1f5f9" }} onClick={() => executeDownload("webp", 1080, "auto")}>
+                    Web-Ready (WebP, 1080p)
+                  </button>
+                  <button style={{ width: "100%", textAlign: "left", padding: "10px 14px", border: "none", background: "transparent", cursor: "pointer", fontSize: "0.85rem" }} onClick={() => executeDownload(null, 400, "auto")}>
+                    Thumbnail (400px)
+                  </button>
+                </div>
+              )}
+            </div>
             {previewUrl && (
               <a href={previewUrl} target="_blank" rel="noreferrer" className="asset-detail-btn-secondary">
                 <ExternalLink size={16} />
@@ -337,9 +388,11 @@ const AssetDetail = () => {
             )}
 
             {/* GOVERNANCE */}
-            {(governance.restriction_reason || governance.publish_note || governance.published_channels?.length > 0) && (
+            {(asset.website_safe || asset.public_use_approved || governance.restriction_reason || governance.publish_note || governance.published_channels?.length > 0) && (
               <div className="asset-detail-card">
                 <div className="card-header"><Lock size={15} /><span>Governance</span></div>
+                <DetailRow label="Website Safe" value={asset.website_safe ? "Yes" : "No"} />
+                <DetailRow label="Public Use" value={asset.public_use_approved ? "Yes" : "No"} />
                 <DetailRow label="Restriction Reason" value={governance.restriction_reason} />
                 <DetailRow label="Publish Note" value={governance.publish_note} />
                 {governance.published_channels?.length > 0 && (
@@ -352,6 +405,27 @@ const AssetDetail = () => {
                 )}
               </div>
             )}
+
+            {/* LIVE PLACEMENTS */}
+            <div className="asset-detail-card">
+              <div className="card-header"><Globe size={15} /><span>Live Placements</span></div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "10px" }}>
+                {placements.map((p) => (
+                  <div key={p.id} style={{ fontSize: "0.85rem", display: "flex", justifyContent: "space-between", padding: "8px", background: "#f8fafc", borderRadius: "6px" }}>
+                    <strong>{p.platform}</strong>
+                    <a href={p.placement_url_or_id.startsWith("http") ? p.placement_url_or_id : `http://${p.placement_url_or_id}`} target="_blank" rel="noreferrer" style={{ color: "var(--accent)" }}>
+                      Link
+                    </a>
+                  </div>
+                ))}
+                {placements.length === 0 && <span style={{ fontSize: "0.85rem", color: "#64748b" }}>No placements tracked yet.</span>}
+                <form onSubmit={handleAddPlacement} style={{ display: "flex", gap: "6px", marginTop: "10px" }}>
+                  <input type="text" placeholder="Platform (e.g. HubSpot)" value={newPlacement.platform} onChange={e => setNewPlacement({ ...newPlacement, platform: e.target.value })} style={{ flex: 1, padding: "6px 10px", fontSize: "0.8rem", border: "1px solid #e2e8f0", borderRadius: "4px" }} />
+                  <input type="text" placeholder="URL" value={newPlacement.placement_url_or_id} onChange={e => setNewPlacement({ ...newPlacement, placement_url_or_id: e.target.value })} style={{ flex: 1, padding: "6px 10px", fontSize: "0.8rem", border: "1px solid #e2e8f0", borderRadius: "4px" }} />
+                  <button type="submit" style={{ padding: "6px 10px", fontSize: "0.8rem", background: "var(--accent)", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}>Add</button>
+                </form>
+              </div>
+            </div>
 
             {/* VERSION HISTORY TREE */}
             <div className="asset-detail-card version-history-card">
