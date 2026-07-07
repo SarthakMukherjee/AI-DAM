@@ -510,7 +510,7 @@ Returned responses now include:
 Expired assets are automatically transitioned to `restricted` during retrieval if required.
 
 
-## ✅ Completed Development
+## ✅ Completed Developments
 
 All items for Feature 3.3 have been completed:
 
