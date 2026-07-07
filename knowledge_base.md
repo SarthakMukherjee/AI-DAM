@@ -398,7 +398,7 @@ Frontend completed:
 ---
 
 ### FEATURE 3.3: Expiry Date Reminder & Alert System
-* **Status** In progress
+* **Status** Completed
 * **Objective:** Automatically monitor assets using the `business.expiry_date` metadata field, determine expiry status, restrict expired assets when accessed, expose expiry information through asset APIs, and provide dedicated administrative monitoring endpoints.
 
 * **Database / Schema:**
