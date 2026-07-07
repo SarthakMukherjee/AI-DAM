@@ -111,3 +111,11 @@ previews/
 # =================================================
 *.bak
 *.tmp
+
+# =================================================
+# DOCUMENTATION
+# =================================================
+implementation_plan.md
+context.md
+knowledge_base.md
+techstack.md
