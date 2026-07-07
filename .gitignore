@@ -115,7 +115,7 @@ previews/
 # =================================================
 # DOCUMENTATION
 # =================================================
-implementation_plan.md
-context.md
-knowledge_base.md
-techstack.md
+.implementation_plan.md
+.context.md
+.knowledge_base.md
+.techstack.md
