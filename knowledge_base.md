@@ -645,7 +645,7 @@ Expired assets transition to `restricted` automatically without introducing a ne
 
 ---
 
-### FEATURE 6.1: Adaptive Upload Wizard (Dynamic Fields by Asset Type)
+### ✅ FEATURE 6.1: Adaptive Upload Wizard (Dynamic Fields by Asset Type)
 * **Objective:** Make Step 3 (Business Metadata) dynamically show/require specific fields based on the selected `asset_type` in Step 2.
 * **Frontend UI:**
   * Modify `frontend/src/pages/admin/UploadAsset.jsx`.
@@ -657,7 +657,7 @@ Expired assets transition to `restricted` automatically without introducing a ne
 
 ---
 
-### FEATURE 6.2: Drag-and-Drop Upload Zone
+### ✅ FEATURE 6.2: Drag-and-Drop Upload Zone
 * **Objective:** Upgrade the standard file selector in Step 1 of `UploadAsset.jsx` to a smooth drop zone.
 * **Frontend UI:**
   * Update Step 1 in `UploadAsset.jsx`.
@@ -665,7 +665,7 @@ Expired assets transition to `restricted` automatically without introducing a ne
 
 ---
 
-### FEATURE 6.3: Batch Upload & Progress Queue
+### ✅ FEATURE 6.3: Batch Upload & Progress Queue
 * **Objective:** Enable multi-file selection with a staged upload queue so users can upload 5-10 assets sequentially.
 * **Frontend UI:**
   * Allow `multiple` file selection in drop zone.
@@ -673,7 +673,7 @@ Expired assets transition to `restricted` automatically without introducing a ne
 
 ---
 
-### FEATURE 6.4: Video-Specific Fields & Metadata
+### ✅ FEATURE 6.4: Video-Specific Fields & Metadata
 * **Objective:** Capture specialized video attributes during upload and display them in asset details.
 * **Database / Schema:**
   * Add fields to JSONB `asset_metadata['content']`: `duration_seconds: int`, `transcript: str`, `aspect_ratio: str`.
