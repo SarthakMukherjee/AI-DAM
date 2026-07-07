@@ -17,6 +17,7 @@ import api from "../../api/axios";
 import Layout from "../../components/common/layout";
 import AuthContext from "../../context/AuthContext";
 import "../../styles/upload.css";
+import BatchEditModal from "./BatchEditModal";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -104,6 +105,7 @@ const UploadAsset = () => {
   const [batchQueue, setBatchQueue] = useState([]); // [{file, status, progress, error, assetName}]
   const [batchRunning, setBatchRunning] = useState(false);
   const [batchDone, setBatchDone] = useState(false);
+  const [editingBatchItem, setEditingBatchItem] = useState(null);
 
   const { user } = useContext(AuthContext);
 
@@ -245,18 +247,11 @@ const UploadAsset = () => {
     const droppedFiles = Array.from(e.dataTransfer.files);
     if (droppedFiles.length === 0) return;
 
+
     if (batchMode) {
-      // Add all dropped files to batch queue
-      const newItems = droppedFiles.map((f) => ({
-        id: crypto.randomUUID(),
-        file: f,
-        status: BATCH_STATUS.QUEUED,
-        progress: 0,
-        error: null,
-        assetName: f.name.replace(/\.[^/.]+$/, ""),
-      }));
-      setBatchQueue((prev) => [...prev, ...newItems]);
+      queueAndAnalyzeFiles(droppedFiles);
     } else {
+
       // Single file mode: use first file only
       handleFileChange(droppedFiles[0]);
     }
@@ -264,18 +259,53 @@ const UploadAsset = () => {
 
   // ─── Batch Upload (Feature 6.3) ──────────────────────────────────────────
 
+
   const handleBatchFileSelect = (e) => {
     const files = Array.from(e.target.files);
+    queueAndAnalyzeFiles(files);
+  };
+
+  const queueAndAnalyzeFiles = (files) => {
     const newItems = files.map((f) => ({
       id: crypto.randomUUID(),
       file: f,
-      status: BATCH_STATUS.QUEUED,
+      status: BATCH_STATUS.ANALYZING,
       progress: 0,
       error: null,
       assetName: f.name.replace(/\.[^/.]+$/, ""),
+      metadata: { ...defaultForm, asset_name: f.name.replace(/\.[^/.]+$/, "") }
     }));
     setBatchQueue((prev) => [...prev, ...newItems]);
+
+    // Kick off AI analysis immediately for each
+    newItems.forEach(async (item) => {
+      try {
+        const analyzeForm = new FormData();
+        analyzeForm.append("file", item.file);
+        const aiRes = await api.post("/assets/analyze", analyzeForm, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+        const updates = {};
+        if (aiRes.data?.asset_name) updates.asset_name = aiRes.data.asset_name;
+        if (aiRes.data?.asset_type) updates.asset_type = aiRes.data.asset_type;
+        if (aiRes.data?.description) updates.description = aiRes.data.description;
+        
+        setBatchQueue(prev => prev.map(qItem => 
+          qItem.id === item.id ? { 
+            ...qItem, 
+            status: BATCH_STATUS.QUEUED, 
+            metadata: { ...qItem.metadata, ...updates } 
+          } : qItem
+        ));
+      } catch {
+        // Fallback to queued if AI fails
+        setBatchQueue(prev => prev.map(qItem => 
+          qItem.id === item.id ? { ...qItem, status: BATCH_STATUS.QUEUED } : qItem
+        ));
+      }
+    });
   };
+
 
   const removeBatchItem = (id) => {
     setBatchQueue((prev) => prev.filter((item) => item.id !== id));
@@ -287,6 +317,7 @@ const UploadAsset = () => {
     );
   };
 
+
   const runBatchUpload = async () => {
     const queued = batchQueue.filter((i) => i.status === BATCH_STATUS.QUEUED);
     if (queued.length === 0) return;
@@ -295,42 +326,34 @@ const UploadAsset = () => {
     setBatchDone(false);
 
     for (const item of queued) {
-      // Step 1: AI Analyze
-      updateBatchItem(item.id, { status: BATCH_STATUS.ANALYZING });
-      let suggestedName = item.assetName;
-      let suggestedType = "image";
-      let suggestedDesc = "";
-      try {
-        const analyzeForm = new FormData();
-        analyzeForm.append("file", item.file);
-        const aiRes = await api.post("/assets/analyze", analyzeForm, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
-        suggestedName = aiRes.data?.asset_name || suggestedName;
-        suggestedType = aiRes.data?.asset_type || suggestedType;
-        suggestedDesc = aiRes.data?.description || "";
-      } catch {
-        // If AI fails, continue with defaults
-      }
-
-      // Step 2: Upload
       updateBatchItem(item.id, { status: BATCH_STATUS.UPLOADING, progress: 10 });
       try {
-        const metadata = {
+        const itemMeta = item.metadata;
+        const payloadMeta = {
           mandatory: {
-            asset_name: suggestedName,
-            asset_type: suggestedType,
-            description: suggestedDesc || `Batch uploaded: ${item.file.name}`,
+            asset_name: itemMeta.asset_name || item.assetName,
+            asset_type: itemMeta.asset_type || "image",
+            description: itemMeta.description || `Batch uploaded: ${item.file.name}`,
             created_by: user?.full_name || "Unknown",
-            usage_rights: "Internal Only",
+            usage_rights: itemMeta.usage_rights || "Internal Only",
             owner: user?.full_name || "Unknown",
           },
-          business: { domain: "AI", use_case: "website", audience: "enterprise", funnel_stage: "awareness" },
-          content: { keywords: [], visual_elements: [], tone: "professional" },
+          business: { 
+            domain: itemMeta.domain || "AI", 
+            use_case: itemMeta.use_case || "website", 
+            audience: itemMeta.audience || "enterprise", 
+            funnel_stage: itemMeta.funnel_stage || "awareness",
+            campaign: itemMeta.campaign || undefined
+          },
+          content: { 
+            keywords: (itemMeta.keywords || "").split(",").map((k) => k.trim()).filter(Boolean), 
+            visual_elements: [], 
+            tone: itemMeta.tone || "professional" 
+          },
         };
         const fd = new FormData();
         fd.append("file", item.file);
-        fd.append("metadata", JSON.stringify(metadata));
+        fd.append("metadata", JSON.stringify(payloadMeta));
         await api.post("/assets/upload", fd, {
           headers: { "Content-Type": "multipart/form-data" },
           onUploadProgress: (prog) => {
@@ -349,6 +372,7 @@ const UploadAsset = () => {
     setBatchRunning(false);
     setBatchDone(true);
   };
+
 
   // ─── Wizard navigation ────────────────────────────────────────────────────
 
@@ -590,15 +614,26 @@ const UploadAsset = () => {
                       )}
                     </div>
 
+
                     {item.status === BATCH_STATUS.QUEUED && (
-                      <button
-                        className="batch-remove-btn"
-                        onClick={() => removeBatchItem(item.id)}
-                        title="Remove from queue"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                      <div className="batch-actions" style={{ display: 'flex', gap: '0.5rem' }}>
+                        <button
+                          className="btn-sm"
+                          onClick={() => setEditingBatchItem(item)}
+                          style={{ background: 'var(--surface-hover)', border: '1px solid var(--border)', color: 'var(--text)' }}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          className="batch-remove-btn"
+                          onClick={() => removeBatchItem(item.id)}
+                          title="Remove from queue"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                     )}
+
                   </div>
                 ))}
 
@@ -1003,7 +1038,20 @@ const UploadAsset = () => {
           </div>
         )}
       </div>
+
+      {/* =================== BATCH EDIT MODAL =================== */}
+      {editingBatchItem && (
+        <BatchEditModal 
+          item={editingBatchItem} 
+          onClose={() => setEditingBatchItem(null)} 
+          onSave={(id, updatedMeta) => {
+            updateBatchItem(id, { metadata: updatedMeta });
+            setEditingBatchItem(null);
+          }} 
+        />
+      )}
     </Layout>
+
   );
 };
 

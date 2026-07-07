@@ -1,5 +1,6 @@
 import { Image, Video, FileText, Folder, Clock, AlertCircle, ShieldCheck } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useState } from "react";
 
 import "../../styles/assetcard.css";
 import { API_BASE } from "../../api/axios";
@@ -33,6 +34,7 @@ const AssetCard = ({
   searchMode,
 }) => {
   const navigate = useNavigate();
+  const [imgError, setImgError] = useState(false);
   const icon = TYPE_ICON[asset.mime_type] || (
     <Folder size={18} className="asset-file-icon default" />
   );
@@ -65,11 +67,16 @@ const AssetCard = ({
   const isExpiringSoon = asset.expiring_soon === true;
   const daysUntilExpiry = asset.days_until_expiry ?? null;
 
-  const previewUrl = asset.thumbnail_path?.startsWith("http")
+  let previewUrl = asset.thumbnail_path?.startsWith("http")
     ? asset.thumbnail_path
     : asset.preview_path?.startsWith("http")
       ? asset.preview_path
       : `${API_BASE}/assets/${asset.id}/preview`;
+
+  // Fix for PDF thumbnails from Cloudinary
+  if (asset.mime_type === "application/pdf" && previewUrl.includes("cloudinary.com") && previewUrl.endsWith(".pdf")) {
+    previewUrl = previewUrl.replace(/\.pdf$/i, ".jpg");
+  }
 
   const hasPreview = asset.thumbnail_path || asset.preview_path;
 
@@ -80,8 +87,13 @@ const AssetCard = ({
 
         <div className="asset-card-front">
           <div className="asset-card-thumb">
-            {hasPreview ? (
-              <img src={previewUrl} alt={assetName} loading="lazy" />
+            {hasPreview && !imgError ? (
+              <img 
+                src={previewUrl} 
+                alt={assetName} 
+                loading="lazy" 
+                onError={() => setImgError(true)}
+              />
             ) : (
               <div className="asset-card-icon">{icon}</div>
             )}

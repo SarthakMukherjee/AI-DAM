@@ -95,7 +95,7 @@ const AnalyticsDashboard = () => {
             {activeTab === "missing_meta" && (
               <div className="analytics-section">
                 <div className="analytics-header">
-                  <h3>Metadata Gaps (Score < 60)</h3>
+                  <h3>Metadata Gaps (Score &lt; 60)</h3>
                   <button className="export-btn" onClick={() => handleExport('missing_meta')}><Download size={14}/> Export CSV</button>
                 </div>
                 {missingMeta.length === 0 ? (
@@ -161,7 +161,7 @@ const AnalyticsDashboard = () => {
             {activeTab === "search_gaps" && (
               <div className="analytics-section">
                 <div className="analytics-header">
-                  <h3>Search Gaps (Average Results < 2)</h3>
+                  <h3>Search Gaps (Average Results &lt; 2)</h3>
                   <button className="export-btn" onClick={() => handleExport('search_gaps')}><Download size={14}/> Export CSV</button>
                 </div>
                 {searchGaps.length === 0 ? (

@@ -68,7 +68,11 @@ const AssetDetail = () => {
           console.error("Failed to fetch versions:", err);
           setVersions([]);
         }
-
+        // Fetch similar assets (images only)
+        if (assetRes.data.asset_type === "image") {
+          try {
+            const similarRes = await api.get(`/assets/${assetId}/similar?threshold=10`);
+            setSimilarAssets(similarRes.data.results || []);
           } catch (err) {
             // 400 = asset has no perceptual hash, which is expected for some images
             if (err.response?.status !== 400) {
