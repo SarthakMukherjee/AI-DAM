@@ -5,7 +5,7 @@ from app.api.dependencies.auth_dependency import require_reviewer
 from app.models.user.user_model import User
 from app.models.asset.asset_model import Asset
 from app.models.user.notification_model import Notification
-from app.schemas.user.schemas import ReviewRequest, PublishRequest, RestrictRequest
+from app.schemas.user.schemas import ReviewRequest, PublishRequest, RestrictRequest, ApproveRequest
 
 router = APIRouter(prefix="/reviewer", tags=["Reviewer"])
 
@@ -37,12 +37,22 @@ def review_queue(db: Session = Depends(get_db), current_user: User = Depends(req
     return query.order_by(Asset.created_at.asc()).all()
 
 @router.post("/assets/{asset_id}/approve")
-def approve_asset(asset_id: str, db: Session = Depends(get_db), current_user: User = Depends(require_reviewer)):
+def approve_asset(asset_id: str, body: ApproveRequest = None, db: Session = Depends(get_db), current_user: User = Depends(require_reviewer)):
     asset = db.query(Asset).filter(Asset.id == asset_id).first()
     if not asset: raise HTTPException(status_code=404, detail="Asset not found")
     check_reviewer_scope(asset, current_user)
     if asset.status not in ["draft", "pending_review"]: raise HTTPException(status_code=400, detail=f"Asset is already {asset.status}")
+    
     asset.status = "approved"
+    
+    if body:
+        if body.website_safe is not None:
+            asset.website_safe = body.website_safe
+        if body.public_use_approved is not None:
+            asset.public_use_approved = body.public_use_approved
+        if body.brand_aligned is not None:
+            asset.brand_aligned = body.brand_aligned
+            
     db.commit()
     return {"message": "Asset approved", "asset_id": asset_id}
 

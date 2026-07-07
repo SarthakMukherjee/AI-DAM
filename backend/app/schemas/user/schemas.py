@@ -52,6 +52,11 @@ class UpdateDomainsRequest(BaseModel):
 # REVIEW SCHEMAS
 # -----------------------------------
 
+class ApproveRequest(BaseModel):
+    website_safe: Optional[bool] = None
+    public_use_approved: Optional[bool] = None
+    brand_aligned: Optional[bool] = None
+
 class ReviewRequest(BaseModel):
     reason: Optional[str] = None
     rejection_category: Optional[str] = None

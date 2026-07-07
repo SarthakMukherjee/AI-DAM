@@ -43,6 +43,12 @@ _ASSET_COLUMNS: list[tuple[str, str]] = [
     ("video_duration_seconds", "INTEGER"),
     ("video_transcript",       "TEXT"),
     ("video_aspect_ratio",     "VARCHAR(20)"),
+
+    # Marketing Governance Flags — Phase 7.1
+    ("website_safe",        "BOOLEAN DEFAULT FALSE"),
+    ("public_use_approved", "BOOLEAN DEFAULT FALSE"),
+    ("brand_aligned",       "BOOLEAN DEFAULT TRUE"),
+    ("alt_text",            "TEXT"),
 ]
 
 _USER_COLUMNS: list[tuple[str, str]] = [
