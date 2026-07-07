@@ -682,7 +682,7 @@ Expired assets transition to `restricted` automatically without introducing a ne
 * **Frontend UI:**
   * Render video duration badge on `AssetCard.jsx`. Render expandable "Video Transcript" box on `AssetDetail.jsx`.
 
----
+--- 
 
 ### FEATURE 7.1: Website & Marketing Context Flag Fields
 * **Objective:** Add explicit governance flags for website and public campaign safety.
