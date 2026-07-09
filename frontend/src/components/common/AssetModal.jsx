@@ -55,9 +55,10 @@ const AssetModal = ({ asset, onClose, onDelete, onArchive, showDelete }) => {
     asset.preview_path ||
     asset.storage_path;
 
+  const token = localStorage.getItem("token") || "";
   const previewUrl = rawPreview?.startsWith("http")
     ? rawPreview
-    : `${API_BASE}/assets/${asset.id}/preview`;
+    : `${API_BASE}/assets/${asset.id}/preview?token=${token}`;
 
   useEffect(() => {
     const handler = (e) => {

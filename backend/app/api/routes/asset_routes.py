@@ -42,7 +42,8 @@ from app.schemas.asset_schema import (
     DuplicateResolveRequest,
     DuplicateResolveResponse,
     AssetPlacementCreate,
-    AssetPlacementResponse
+    AssetPlacementResponse,
+    AssetBulkEditRequest
 )
 from app.models.asset.asset_placement_model import AssetPlacement
 from app.services.storage.duplicate_merge_service import (
@@ -174,6 +175,16 @@ async def upload_asset(
     video_duration_seconds: int = Form(None),
     video_transcript: str = Form(None),
     video_aspect_ratio: str = Form(None),
+    
+    # Phase 1.2 — Governance fields
+    geographic_restrictions: str = Form(None),
+    platform_restrictions: str = Form(None),
+    source_ownership: str = Form(None),
+    model_release_status: str = Form("Not Required"),
+    
+    # Phase 2 - Relationships
+    relationship_type: str = Form("master"),
+
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin)
 ):
@@ -198,6 +209,7 @@ async def upload_asset(
         metadata=validated_metadata.model_dump(),
         status="draft",
         parent_id=parent_id,
+        relationship_type=relationship_type,
         changelog=changelog,
         uploaded_by=current_user.email if hasattr(current_user, "email") else str(current_user.id),
     )
@@ -209,8 +221,24 @@ async def upload_asset(
         asset.video_transcript = video_transcript.strip()
     if video_aspect_ratio:
         asset.video_aspect_ratio = video_aspect_ratio.strip()
+        
+    # Phase 1.2 — Persist Governance fields
+    if geographic_restrictions:
+        try:
+            asset.geographic_restrictions = json.loads(geographic_restrictions)
+        except:
+            pass
+    if platform_restrictions:
+        try:
+            asset.platform_restrictions = json.loads(platform_restrictions)
+        except:
+            pass
+    if source_ownership:
+        asset.source_ownership = source_ownership.strip()
+    if model_release_status:
+        asset.model_release_status = model_release_status.strip()
 
-    if any([video_duration_seconds, video_transcript, video_aspect_ratio]):
+    if any([video_duration_seconds, video_transcript, video_aspect_ratio, geographic_restrictions, platform_restrictions, source_ownership, model_release_status]):
         db.add(asset)
         db.commit()
         db.refresh(asset)
@@ -477,7 +505,10 @@ def preview_asset(
     if not os.path.exists(preview_path):
         raise HTTPException(status_code=404, detail="Preview file not found on local storage")
 
-    return FileResponse(preview_path)
+    return FileResponse(
+        path=preview_path,
+        media_type=asset.mime_type
+    )
 
 
 # -----------------------------------
@@ -951,6 +982,77 @@ def resolve_duplicate_asset(
     )
 
 # -----------------------------------
+# BULK EDIT
+# -----------------------------------
+@router.put("/bulk-edit")
+def bulk_edit_assets(
+    payload: AssetBulkEditRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    assets = db.query(Asset).filter(Asset.id.in_(payload.asset_ids)).all()
+    if not assets:
+        raise HTTPException(status_code=404, detail="No assets found for given IDs")
+
+    updated_count = 0
+    for asset in assets:
+        # Merge metadata updates
+        if payload.metadata_updates:
+            current_metadata = asset.asset_metadata or {}
+            
+            # Simple shallow merge by key sections (mandatory, business, etc.)
+            for section, updates in payload.metadata_updates.items():
+                if section not in current_metadata:
+                    current_metadata[section] = {}
+                if isinstance(updates, dict):
+                    current_metadata[section].update(updates)
+                else:
+                    current_metadata[section] = updates
+                    
+            asset.asset_metadata = current_metadata
+            
+            # Recalculate completeness score
+            from app.utils.completeness import calculate_completeness
+            asset.completeness_score = calculate_completeness(current_metadata)
+
+        # Apply scalar updates
+        if payload.status is not None:
+            asset.status = payload.status
+        if payload.website_safe is not None:
+            asset.website_safe = payload.website_safe
+        if payload.public_use_approved is not None:
+            asset.public_use_approved = payload.public_use_approved
+        if payload.brand_aligned is not None:
+            asset.brand_aligned = payload.brand_aligned
+        if payload.alt_text is not None:
+            asset.alt_text = payload.alt_text
+        if payload.geographic_restrictions is not None:
+            asset.geographic_restrictions = payload.geographic_restrictions
+        if payload.platform_restrictions is not None:
+            asset.platform_restrictions = payload.platform_restrictions
+        if payload.source_ownership is not None:
+            asset.source_ownership = payload.source_ownership
+        if payload.model_release_status is not None:
+            asset.model_release_status = payload.model_release_status
+
+        asset.updated_by = current_user.email if hasattr(current_user, "email") else str(current_user.id)
+        
+        # Log audit
+        log_audit_event(
+            db=db,
+            user_id=current_user.id,
+            action="BULK_EDIT",
+            asset_id=asset.id,
+            new_value="Bulk metadata update applied",
+            ip_address=request.client.host if request.client else None
+        )
+        updated_count += 1
+        
+    db.commit()
+    return {"message": f"Successfully updated {updated_count} assets."}
+
+# -----------------------------------
 # GET SINGLE ASSET
 # IMPORTANT: This catch-all route MUST be last
 # so it does not intercept named routes like
@@ -1013,9 +1115,30 @@ def get_asset(
     # Return enriched asset response
     # --------------------------------------------------------------
 
+    # Fetch derivatives
+    derivatives = db.query(Asset).filter(
+        Asset.parent_id == asset.id,
+        Asset.relationship_type == "derivative"
+    ).all()
+    
+    # Fetch master if this is a derivative
+    master_asset = None
+    if asset.relationship_type == "derivative" and asset.parent_id:
+        master_asset = db.query(Asset).filter(Asset.id == asset.parent_id).first()
+
+    # Fetch renditions
+    from app.models.asset.asset_rendition_model import AssetRendition
+    asset_renditions = db.query(AssetRendition).filter(AssetRendition.asset_id == asset.id).all()
+
     return {
         **asset.__dict__,
         "metadata": asset.asset_metadata,
+        "derivatives": [
+            {"id": d.id, "original_filename": d.original_filename, "version": d.version, "created_at": d.created_at} 
+            for d in derivatives
+        ],
+        "master_asset": {"id": master_asset.id, "original_filename": master_asset.original_filename} if master_asset else None,
+        "renditions": [r.__dict__ for r in asset_renditions],
         **expiry,
     }
 

@@ -287,7 +287,8 @@ const AssetBrowser = () => {
               )}
               <button
                 type="submit"
-                className="browser-search-btn"
+                className="btn-premium"
+                style={{ marginLeft: '8px' }}
                 disabled={searchLoading}
               >
                 {searchLoading ? "Searching..." : "Search"}

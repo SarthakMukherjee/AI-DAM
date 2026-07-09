@@ -6,6 +6,13 @@ class AssetCreateSchema(BaseModel):
     asset_metadata: Optional[dict] = None
     status: Optional[str] = "draft"
     parent_id: Optional[str] = None
+    relationship_type: Optional[str] = "master"
+    
+    # Governance
+    geographic_restrictions: Optional[list[str]] = None
+    platform_restrictions: Optional[list[str]] = None
+    source_ownership: Optional[str] = None
+    model_release_status: Optional[str] = "Not Required"
 
 
 class AssetResponse(BaseModel):
@@ -24,6 +31,7 @@ class AssetResponse(BaseModel):
     version: int
 
     parent_id: Optional[str]
+    relationship_type: str
 
     is_latest: bool
 
@@ -53,6 +61,17 @@ class AssetResponse(BaseModel):
     public_use_approved: bool = False
     brand_aligned: bool = True
     alt_text: Optional[str] = None
+    
+    # Governance
+    geographic_restrictions: Optional[list[str]] = None
+    platform_restrictions: Optional[list[str]] = None
+    source_ownership: Optional[str] = None
+    model_release_status: Optional[str] = "Not Required"
+    
+    # Relationships
+    derivatives: Optional[list[dict]] = None
+    master_asset: Optional[dict] = None
+    renditions: Optional[list[dict]] = None
 
     class Config: 
         from_attributes = True
@@ -111,4 +130,31 @@ class AssetPlacementResponse(BaseModel):
     created_at: datetime
 
     class Config:
-        from_attributes = True
+        from_attributes = True
+
+class AssetRenditionResponse(BaseModel):
+    id: str
+    asset_id: str
+    rendition_name: str
+    storage_path: str
+    mime_type: Optional[str]
+    file_size: Optional[int]
+    width: Optional[int]
+    height: Optional[int]
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class AssetBulkEditRequest(BaseModel):
+    asset_ids: list[str]
+    metadata_updates: Optional[dict] = None
+    status: Optional[str] = None
+    website_safe: Optional[bool] = None
+    public_use_approved: Optional[bool] = None
+    brand_aligned: Optional[bool] = None
+    alt_text: Optional[str] = None
+    geographic_restrictions: Optional[list[str]] = None
+    platform_restrictions: Optional[list[str]] = None
+    source_ownership: Optional[str] = None
+    model_release_status: Optional[str] = None

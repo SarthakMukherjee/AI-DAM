@@ -32,6 +32,9 @@ const AssetCard = ({
   semanticScore,
   keywordScore,
   searchMode,
+  selectable = false,
+  selected = false,
+  onSelect = null,
 }) => {
   const navigate = useNavigate();
   const [imgError, setImgError] = useState(false);
@@ -67,25 +70,45 @@ const AssetCard = ({
   const isExpiringSoon = asset.expiring_soon === true;
   const daysUntilExpiry = asset.days_until_expiry ?? null;
 
+  const token = localStorage.getItem("token") || "";
   let previewUrl = asset.thumbnail_path?.startsWith("http")
     ? asset.thumbnail_path
     : asset.preview_path?.startsWith("http")
       ? asset.preview_path
-      : `${API_BASE}/assets/${asset.id}/preview`;
+      : `${API_BASE}/assets/${asset.id}/preview?token=${token}`;
 
   // Fix for PDF thumbnails from Cloudinary
   if (asset.mime_type === "application/pdf" && previewUrl.includes("cloudinary.com") && previewUrl.endsWith(".pdf")) {
     previewUrl = previewUrl.replace(/\.pdf$/i, ".jpg");
   }
 
-  const hasPreview = asset.thumbnail_path || asset.preview_path;
+  const hasPreview = asset.thumbnail_path || asset.preview_path || asset.storage_path;
+
+  const handleCardClick = (e) => {
+    if (selectable && onSelect) {
+      onSelect(asset.id, !selected);
+    } else if (onClick) {
+      onClick(e);
+    }
+  };
 
   return (
-    <div className="asset-card" onClick={onClick}>
+    <div className={`asset-card ${selected ? 'selected' : ''}`} onClick={handleCardClick} style={selected ? { border: '2px solid var(--primary)' } : {}}>
       <div className="asset-card-inner">
         {/* FRONT */}
 
         <div className="asset-card-front">
+          {selectable && (
+            <div style={{ position: "absolute", top: "10px", left: "10px", zIndex: 10 }}>
+              <input 
+                type="checkbox" 
+                checked={selected} 
+                onChange={() => onSelect(asset.id, !selected)} 
+                onClick={(e) => e.stopPropagation()}
+                style={{ width: "18px", height: "18px", cursor: "pointer" }}
+              />
+            </div>
+          )}
           <div className="asset-card-thumb">
             {hasPreview && !imgError ? (
               <img 

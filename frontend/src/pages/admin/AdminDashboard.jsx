@@ -11,6 +11,7 @@ import AssetCard from "../../components/common/AssetCard";
 import AssetModal from "../../components/common/AssetModal";
 import AuditLogViewer from "./AuditLogViewer";
 import AnalyticsDashboard from "./AnalyticsDashboard";
+import BulkEditModal from "./BulkEditModal";
 import "../../styles/admindashboard.css";
 
 const AdminDashboard = () => {
@@ -21,6 +22,11 @@ const AdminDashboard = () => {
   const [filter, setFilter] = useState("all");
   const [duplicateGroups, setDuplicateGroups] = useState([]);
   const [duplicatesLoading, setDuplicatesLoading] = useState(false);
+  
+  // Bulk selection state
+  const [isBulkMode, setIsBulkMode] = useState(false);
+  const [selectedBulkIds, setSelectedBulkIds] = useState([]);
+  const [showBulkModal, setShowBulkModal] = useState(false);
 
   // Expiring assets state
   const [expiringAssets, setExpiringAssets] = useState([]);
@@ -266,11 +272,27 @@ const AdminDashboard = () => {
       <div className="admin-page">
         {/* PAGE HEADER */}
         <div className="admin-header">
-          <div>
-            <h1 className="admin-title">Asset Dashboard</h1>
-            <p className="admin-subtitle">
-              Manage and monitor all uploaded assets
-            </p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%' }}>
+            <div>
+              <h1 className="admin-title">Asset Dashboard</h1>
+              <p className="admin-subtitle">
+                Manage and monitor all uploaded assets
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <button 
+                className="btn-premium"
+                onClick={() => navigate("/admin/upload")}
+              >
+                Upload New Asset
+              </button>
+              <button 
+                className="btn-premium"
+                onClick={() => setIsBulkMode(!isBulkMode)}
+              >
+                {isBulkMode ? "Exit Bulk Edit" : "Enter Bulk Edit Mode"}
+              </button>
+            </div>
           </div>
           {filter === "duplicates" && (
             <button
@@ -604,14 +626,51 @@ const AdminDashboard = () => {
             <p>Try a different filter or upload a new asset.</p>
           </div>
         ) : (
-          <div className="browser-grid">
-            {filtered.map((asset) => (
-              <AssetCard
-                key={asset.id}
-                asset={asset}
-                onClick={() => setSelectedAsset(asset)}
-              />
-            ))}
+          <div className="admin-grid-container">
+            {/* BULK EDIT TOOLBAR */}
+            {isBulkMode && (
+              <div style={{ marginBottom: "1rem", padding: "1rem", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "8px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span><strong>{selectedBulkIds.length}</strong> assets selected</span>
+                <div style={{ display: "flex", gap: "10px" }}>
+                  <button className="dup-action-btn" onClick={() => setSelectedBulkIds([])} disabled={selectedBulkIds.length === 0}>
+                    Clear Selection
+                  </button>
+                  <button className="dup-action-btn dup-action-btn--retire" onClick={() => setShowBulkModal(true)} disabled={selectedBulkIds.length === 0}>
+                    Edit Selected
+                  </button>
+                </div>
+              </div>
+            )}
+            
+            <div style={{ marginBottom: "1rem", display: "flex", justifyContent: "flex-end" }}>
+              <button 
+                className="dup-action-btn" 
+                onClick={() => {
+                  setIsBulkMode(!isBulkMode);
+                  if (isBulkMode) setSelectedBulkIds([]);
+                }}
+              >
+                {isBulkMode ? "Exit Bulk Edit Mode" : "Enter Bulk Edit Mode"}
+              </button>
+            </div>
+
+            <div className="browser-grid">
+              {filtered.map((asset) => (
+                <AssetCard
+                  key={asset.id}
+                  asset={asset}
+                  selectable={isBulkMode}
+                  selected={selectedBulkIds.includes(asset.id)}
+                  onSelect={(id, checked) => {
+                    if (checked) setSelectedBulkIds(prev => [...prev, id]);
+                    else setSelectedBulkIds(prev => prev.filter(vid => vid !== id));
+                  }}
+                  onClick={() => {
+                    if (!isBulkMode) setSelectedAsset(asset);
+                  }}
+                />
+              ))}
+            </div>
           </div>
         )}
       </div>
@@ -788,6 +847,18 @@ const AdminDashboard = () => {
             </div>
           </div>
         </div>
+      )}
+      {showBulkModal && (
+        <BulkEditModal 
+          selectedAssetIds={selectedBulkIds} 
+          onClose={() => setShowBulkModal(false)}
+          onComplete={() => {
+            setShowBulkModal(false);
+            setSelectedBulkIds([]);
+            setIsBulkMode(false);
+            fetchData();
+          }}
+        />
       )}
     </Layout>
   );

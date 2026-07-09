@@ -423,4 +423,7 @@ def _format_asset(
 
         "perceptual_hash":
             asset.perceptual_hash,
+
+        "relationship_type":
+            asset.relationship_type,
     }

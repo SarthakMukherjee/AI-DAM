@@ -12,6 +12,7 @@ from app.api.routes.admin_routes import router as admin_router
 from app.api.routes.reviewer_routes import router as reviewer_router
 from app.api.routes.super_admin_routes import router as super_admin_router
 from app.api.routes.search_routes import router as search_router
+from app.api.routes.taxonomy_routes import router as taxonomy_router
 
 from app.db.session.database import Base, engine
 from app.db.migrate import upgrade_db_schema
@@ -21,8 +22,11 @@ from app.services.storage.storage_initializer import initialize_storage
 # CREATE ALL TABLES
 # -----------------------------------
 from app.models.asset.asset_placement_model import AssetPlacement
+from app.models.asset.asset_rendition_model import AssetRendition
 from app.models.audit.audit_log_model import AuditLog
 from app.models.analytics.search_log_model import SearchLog
+from app.models.taxonomy.taxonomy_model import Category, Tag
+from app.models.asset.shared_link_model import SharedLink
 
 Base.metadata.create_all(bind=engine)
 
@@ -84,6 +88,9 @@ app.include_router(admin_router)
 app.include_router(reviewer_router)
 app.include_router(super_admin_router)
 app.include_router(search_router)
+app.include_router(taxonomy_router)
+from app.api.routes.shared_link_routes import router as shared_link_router
+app.include_router(shared_link_router)
 
 
 @app.get("/")

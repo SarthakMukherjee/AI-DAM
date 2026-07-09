@@ -29,7 +29,7 @@ const Navbar = ({ onToggleSidebar }) => {
   };
 
   return (
-    <nav className="navbar">
+    <nav className="navbar glass-header">
       {/* LEFT */}
 
       <div className="navbar-left">

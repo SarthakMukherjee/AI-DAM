@@ -66,7 +66,11 @@ class Settings(BaseSettings):
     seed_super_admin_password: str
 
     class Config:
-        env_file = ".env"
+        # ======= Added on 09-07-26 ========
+        import os
+        from pathlib import Path
+        # Resolve to the backend directory
+        env_file = str(Path(__file__).resolve().parent.parent.parent.parent / ".env")
 
 
 settings = Settings()

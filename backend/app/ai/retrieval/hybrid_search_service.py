@@ -97,11 +97,19 @@ def _merge_and_rank(
     # Compute hybrid score for all
     results = []
     for asset_id, data in merged.items():
-        hybrid_score = round(
-            (data["semantic_score"] * SEMANTIC_WEIGHT) +
-            (data["keyword_score"]  * KEYWORD_WEIGHT),
-            4
-        )
+        base_hybrid_score = (data["semantic_score"] * SEMANTIC_WEIGHT) + (data["keyword_score"] * KEYWORD_WEIGHT)
+        
+        # ---------------------------------------------------------
+        # Phase 3.2: Refined Search Ranking (Boosts)
+        # ---------------------------------------------------------
+        # 1. Completeness Boost: up to +0.15 for perfectly documented assets
+        completeness = data.get("completeness_score", 0)
+        completeness_boost = (completeness / 100.0) * 0.15
+        
+        # 2. Master Asset Boost: +0.10 for master assets (prioritize originals over derivatives)
+        relationship_boost = 0.10 if data.get("relationship_type") == "master" else 0.0
+        
+        hybrid_score = round(base_hybrid_score + completeness_boost + relationship_boost, 4)
         results.append({
             "asset_id":          asset_id,
             "hybrid_score":      hybrid_score,
