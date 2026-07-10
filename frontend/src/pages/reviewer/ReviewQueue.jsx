@@ -140,7 +140,16 @@ const ReviewQueue = () => {
                 ? asset.asset_metadata.ai_enrichment.ai_tags.slice(0, 3) 
                 : [];
               const rawPreview = asset.thumbnail_path || asset.preview_path || asset.storage_path || "";
-              const previewUrl = rawPreview?.startsWith("http") ? rawPreview : rawPreview ? `${API_BASE}/assets/${asset.id}/preview` : "";
+              
+              const isDocument = asset.mime_type === "application/pdf" || 
+                                 asset.mime_type?.includes("word") || 
+                                 asset.mime_type?.includes("document");
+              
+              const token = localStorage.getItem("access_token");
+              const previewUrl = !isDocument && rawPreview 
+                ? (rawPreview.startsWith("http") ? rawPreview : `${API_BASE}/assets/${asset.id}/preview${token ? `?token=${token}` : ''}`)
+                : null;
+
               const statusCfg = STATUS_CONFIG[asset.status] || { label: asset.status, cls: "badge-warning" };
               const isRejecting = rejectState.id === asset.id;
               const isLoading = actionLoading === asset.id;

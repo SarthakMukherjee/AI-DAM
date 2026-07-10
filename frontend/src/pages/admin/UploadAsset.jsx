@@ -288,10 +288,27 @@ const UploadAsset = () => {
         const aiRes = await api.post("/assets/analyze", analyzeForm, {
           headers: { "Content-Type": "multipart/form-data" },
         });
+        const data = aiRes.data || {};
+        const FIELD_MAP = {
+          asset_name:   data.asset_name,
+          asset_type:   data.asset_type,
+          description:  data.description,
+          created_by:   data.created_by,
+          owner:        data.owner,
+          usage_rights: data.usage_rights,
+          domain:       data.domain,
+          use_case:     data.use_case,
+          audience:     data.audience,
+          funnel_stage: data.funnel_stage,
+          tone:         data.tone,
+          keywords:     data.keywords,
+        };
         const updates = {};
-        if (aiRes.data?.asset_name) updates.asset_name = aiRes.data.asset_name;
-        if (aiRes.data?.asset_type) updates.asset_type = aiRes.data.asset_type;
-        if (aiRes.data?.description) updates.description = aiRes.data.description;
+        for (const [key, val] of Object.entries(FIELD_MAP)) {
+          if (val && String(val).trim()) {
+            updates[key] = String(val).trim();
+          }
+        }
         
         setBatchQueue(prev => prev.map(qItem => 
           qItem.id === item.id ? { 

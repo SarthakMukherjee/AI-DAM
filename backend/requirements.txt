@@ -13,6 +13,7 @@ python-magic
 
 pillow
 pymupdf
+python-docx
 
 ffmpeg-python
 
