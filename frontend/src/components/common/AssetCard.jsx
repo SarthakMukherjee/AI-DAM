@@ -67,11 +67,12 @@ const AssetCard = ({
   const isExpiringSoon = asset.expiring_soon === true;
   const daysUntilExpiry = asset.days_until_expiry ?? null;
 
+  const token = localStorage.getItem("access_token");
   let previewUrl = asset.thumbnail_path?.startsWith("http")
     ? asset.thumbnail_path
     : asset.preview_path?.startsWith("http")
       ? asset.preview_path
-      : `${API_BASE}/assets/${asset.id}/preview`;
+      : `${API_BASE}/assets/${asset.id}/preview${token ? `?token=${token}` : ''}`;
 
   // Fix for PDF thumbnails from Cloudinary
   if (asset.mime_type === "application/pdf" && previewUrl.includes("cloudinary.com") && previewUrl.endsWith(".pdf")) {
@@ -112,9 +113,24 @@ const AssetCard = ({
               </div>
             )}
 
-            {/* STATUS BADGE — always visible on front */}
-            <div className={`asset-status-badge badge ${statusCfg.cls}`}>
-              {statusCfg.label}
+            {/* BADGES CONTAINER (Status + Governance) */}
+            <div style={{ position: "absolute", top: "8px", left: "8px", display: "flex", flexWrap: "wrap", gap: "4px", zIndex: 5, maxWidth: "calc(100% - 35px)" }}>
+              {/* STATUS BADGE */}
+              <div className={`asset-status-badge badge ${statusCfg.cls}`} style={{ position: "relative", top: "auto", left: "auto", zIndex: "auto" }}>
+                {statusCfg.label}
+              </div>
+
+              {/* GOVERNANCE BADGES */}
+              {asset.website_safe && (
+                <div className="badge" style={{ backgroundColor: "#10b981", color: "white", padding: "2px 6px", fontSize: "10px", borderRadius: "12px", display: "flex", alignItems: "center", gap: "2px", fontWeight: 600 }} title="Website Safe">
+                  <ShieldCheck size={10} /> Web
+                </div>
+              )}
+              {asset.public_use_approved && (
+                <div className="badge" style={{ backgroundColor: "#10b981", color: "white", padding: "2px 6px", fontSize: "10px", borderRadius: "12px", display: "flex", alignItems: "center", gap: "2px", fontWeight: 600 }} title="Public Use Approved">
+                  <ShieldCheck size={10} /> Public
+                </div>
+              )}
             </div>
 
             {/* EXPIRY BADGES */}
@@ -128,22 +144,6 @@ const AssetCard = ({
               <div className="asset-expiry-badge asset-expiry-badge--soon" title={`Expires in ${daysUntilExpiry} day${daysUntilExpiry === 1 ? '' : 's'}`}>
                 <Clock size={11} />
                 {daysUntilExpiry !== null ? `${daysUntilExpiry}d left` : 'EXPIRING SOON'}
-              </div>
-            )}
-
-            {/* GOVERNANCE BADGES */}
-            {(asset.website_safe || asset.public_use_approved) && (
-              <div className="asset-governance-badges" style={{ position: "absolute", top: "8px", left: "8px", display: "flex", gap: "4px" }}>
-                {asset.website_safe && (
-                  <div className="badge" style={{ backgroundColor: "#10b981", color: "white", padding: "2px 6px", fontSize: "10px", borderRadius: "12px", display: "flex", alignItems: "center", gap: "2px" }} title="Website Safe">
-                    <ShieldCheck size={10} /> Web
-                  </div>
-                )}
-                {asset.public_use_approved && (
-                  <div className="badge" style={{ backgroundColor: "#10b981", color: "white", padding: "2px 6px", fontSize: "10px", borderRadius: "12px", display: "flex", alignItems: "center", gap: "2px" }} title="Public Use Approved">
-                    <ShieldCheck size={10} /> Public
-                  </div>
-                )}
               </div>
             )}
 

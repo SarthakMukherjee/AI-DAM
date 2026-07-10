@@ -46,7 +46,7 @@ const BatchEditModal = ({ item, onClose, onSave }) => {
                 name="asset_name" 
                 value={form.asset_name || ""} 
                 onChange={handleChange}
-                style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--surface)' }}
+                style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
               />
             </div>
             <div style={{ flex: 1 }}>
@@ -55,7 +55,7 @@ const BatchEditModal = ({ item, onClose, onSave }) => {
                 name="asset_type" 
                 value={form.asset_type || "image"} 
                 onChange={handleChange}
-                style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--surface)' }}
+                style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
               >
                 {ASSET_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
@@ -69,7 +69,7 @@ const BatchEditModal = ({ item, onClose, onSave }) => {
               value={form.description || ""} 
               onChange={handleChange} 
               rows={3}
-              style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--surface)' }}
+              style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
             />
           </div>
 
@@ -80,7 +80,7 @@ const BatchEditModal = ({ item, onClose, onSave }) => {
                 name="domain" 
                 value={form.domain || "AI"} 
                 onChange={handleChange}
-                style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--surface)' }}
+                style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
               >
                 {DOMAIN_TYPES.map(d => <option key={d} value={d}>{d}</option>)}
               </select>
@@ -91,7 +91,7 @@ const BatchEditModal = ({ item, onClose, onSave }) => {
                 name="use_case" 
                 value={form.use_case || "website"} 
                 onChange={handleChange}
-                style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--surface)' }}
+                style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
               >
                 {USE_CASES.map(u => <option key={u} value={u}>{u}</option>)}
               </select>
@@ -105,7 +105,7 @@ const BatchEditModal = ({ item, onClose, onSave }) => {
                 name="campaign" 
                 value={form.campaign || ""} 
                 onChange={handleChange}
-                style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--surface)' }}
+                style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
               />
             </div>
             <div style={{ flex: 1 }}>
@@ -114,7 +114,7 @@ const BatchEditModal = ({ item, onClose, onSave }) => {
                 name="keywords" 
                 value={form.keywords || ""} 
                 onChange={handleChange}
-                style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--surface)' }}
+                style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
               />
             </div>
           </div>

@@ -267,6 +267,15 @@ class AssetService:
 
             existing_metadata = dict(asset.asset_metadata or {})
             existing_metadata["ai_enrichment"] = ai_metadata
+            
+            # Map ai_summary to mandatory description if default from batch upload
+            desc = existing_metadata.get("mandatory", {}).get("description", "")
+            if not desc or desc.startswith("Batch uploaded:") or desc == "Wait for AI":
+                if ai_metadata.get("ai_summary"):
+                    if "mandatory" not in existing_metadata:
+                        existing_metadata["mandatory"] = {}
+                    existing_metadata["mandatory"]["description"] = ai_metadata.get("ai_summary")
+            
             asset.asset_metadata = existing_metadata
 
             # ─────────────────────────────────────────────

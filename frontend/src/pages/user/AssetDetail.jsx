@@ -167,8 +167,9 @@ const AssetDetail = () => {
   const StatusIcon = statusCfg.Icon;
   const FileIcon = TYPE_ICON[asset.mime_type] || Folder;
 
+  const token = localStorage.getItem("access_token");
   const rawPreview = asset.thumbnail_url || asset.preview_url || asset.thumbnail_path || asset.preview_path || asset.storage_path;
-  const previewUrl = rawPreview?.startsWith("http") ? rawPreview : `${API_BASE}/assets/${asset.id}/preview`;
+  const previewUrl = rawPreview?.startsWith("http") ? rawPreview : `${API_BASE}/assets/${asset.id}/preview${token ? `?token=${token}` : ''}`;
 
   const completeness = computeCompleteness(asset);
   const completenessColor = completeness >= 80 ? "var(--success)" : completeness >= 50 ? "var(--warning)" : "var(--danger)";
