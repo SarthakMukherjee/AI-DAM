@@ -69,6 +69,8 @@ const defaultForm = {
   keywords: "", visual_elements: "", tone: "professional", parent_id: "",
   // Video-specific
   video_duration_seconds: "", video_transcript: "", video_aspect_ratio: "16:9",
+  // Governance Phase 1.2
+  geographic_restrictions: "", platform_restrictions: "", source_ownership: "", model_release_status: "Not Required",
 };
 
 // ─── Batch item states ────────────────────────────────────────────────────────
@@ -92,6 +94,7 @@ const UploadAsset = () => {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
   const [isVersionUpdate, setIsVersionUpdate] = useState(false);
+  const [isDerivative, setIsDerivative] = useState(false);
   const [availableAssets, setAvailableAssets] = useState([]);
   const [selectedParentAsset, setSelectedParentAsset] = useState(null);
   const [aiSuggestedFields, setAiSuggestedFields] = useState([]);
@@ -451,8 +454,9 @@ const UploadAsset = () => {
     const formData = new FormData();
     formData.append("file", file);
     formData.append("metadata", JSON.stringify(metadata));
-    if (isVersionUpdate && selectedParentAsset) {
+    if ((isVersionUpdate || isDerivative) && selectedParentAsset) {
       formData.append("parent_id", selectedParentAsset.id);
+      formData.append("relationship_type", isDerivative ? "derivative" : "master");
     }
     // Phase 6.4 — Video fields
     if (isVideoType && form.video_duration_seconds) {
@@ -463,6 +467,20 @@ const UploadAsset = () => {
     }
     if (isVideoType && form.video_aspect_ratio) {
       formData.append("video_aspect_ratio", form.video_aspect_ratio);
+    }
+    
+    // Phase 1.2 — Governance fields
+    if (form.geographic_restrictions) {
+      formData.append("geographic_restrictions", JSON.stringify(form.geographic_restrictions.split(",").map(s => s.trim()).filter(Boolean)));
+    }
+    if (form.platform_restrictions) {
+      formData.append("platform_restrictions", JSON.stringify(form.platform_restrictions.split(",").map(s => s.trim()).filter(Boolean)));
+    }
+    if (form.source_ownership) {
+      formData.append("source_ownership", form.source_ownership);
+    }
+    if (form.model_release_status) {
+      formData.append("model_release_status", form.model_release_status);
     }
 
     try {
@@ -475,6 +493,7 @@ const UploadAsset = () => {
       setStep(0);
       setSelectedParentAsset(null);
       setIsVersionUpdate(false);
+      setIsDerivative(false);
       if (user?.full_name) {
         setForm((prev) => ({ ...prev, created_by: user.full_name, owner: user.full_name }));
       }
@@ -676,20 +695,34 @@ const UploadAsset = () => {
                 <div className="wizard-fields">
                   <h2 className="wizard-section-title">Upload File</h2>
 
-                  {/* VERSION TOGGLE */}
-                  <div className="version-toggle">
+                  {/* VERSION / DERIVATIVE TOGGLE */}
+                  <div className="version-toggle" style={{ display: "flex", gap: "1rem" }}>
                     <label className="version-checkbox">
                       <input
                         type="checkbox"
                         checked={isVersionUpdate}
-                        onChange={(e) => setIsVersionUpdate(e.target.checked)}
+                        onChange={(e) => {
+                          setIsVersionUpdate(e.target.checked);
+                          if (e.target.checked) setIsDerivative(false);
+                        }}
                       />
                       <span>Upload as new version</span>
+                    </label>
+                    <label className="version-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={isDerivative}
+                        onChange={(e) => {
+                          setIsDerivative(e.target.checked);
+                          if (e.target.checked) setIsVersionUpdate(false);
+                        }}
+                      />
+                      <span>Upload as derivative</span>
                     </label>
                   </div>
 
                   {/* SELECT PARENT ASSET */}
-                  {isVersionUpdate && (
+                  {(isVersionUpdate || isDerivative) && (
                     <div className="version-assets">
                       <div className="version-assets-header">
                         <GitBranch size={16} />
@@ -836,6 +869,30 @@ const UploadAsset = () => {
                       ))}
                     </select>
                   </Field>
+
+                  <div className="upload-row">
+                    <Field label="Geographic Restrictions (comma separated)">
+                      <input name="geographic_restrictions" value={form.geographic_restrictions} onChange={handleChange}
+                        placeholder="e.g. US, CA, UK" />
+                    </Field>
+                    <Field label="Platform Restrictions (comma separated)">
+                      <input name="platform_restrictions" value={form.platform_restrictions} onChange={handleChange}
+                        placeholder="e.g. facebook, tiktok" />
+                    </Field>
+                  </div>
+                  <div className="upload-row">
+                    <Field label="Source Ownership">
+                      <input name="source_ownership" value={form.source_ownership} onChange={handleChange}
+                        placeholder="e.g. Internal, Stock Agency" />
+                    </Field>
+                    <Field label="Model Release Status">
+                      <select name="model_release_status" value={form.model_release_status} onChange={handleChange}>
+                        <option value="Not Required">Not Required</option>
+                        <option value="Pending">Pending</option>
+                        <option value="Approved">Approved</option>
+                      </select>
+                    </Field>
+                  </div>
                 </div>
               )}
 
@@ -1029,7 +1086,7 @@ const UploadAsset = () => {
                     Next<ArrowRight size={16} />
                   </button>
                 ) : (
-                  <button className="wizard-btn-submit" onClick={handleSubmit} disabled={loading}>
+                  <button className="btn-premium" onClick={handleSubmit} disabled={loading} style={{ marginLeft: 'auto' }}>
                     {loading ? <span className="btn-loader" /> : <><UploadCloud size={16} />Upload Asset</>}
                   </button>
                 )}

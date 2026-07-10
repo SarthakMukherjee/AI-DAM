@@ -42,11 +42,12 @@ class Asset(Base):
     # WORKFLOW STATUS
     status = Column(String, default="draft")
 
-    # VERSIONING
+    # VERSIONING & DERIVATIVES — Phase 2
     version = Column(Integer, default=1)
     parent_id = Column(String, ForeignKey("assets.id"), nullable=True)
     root_asset_id = Column(String, nullable=True)
     is_latest = Column(Boolean, default=True)
+    relationship_type = Column(String, default="master") # "master" or "derivative"
 
     # ARCHIVAL
     is_archived = Column(Boolean, default=False)
@@ -114,4 +115,12 @@ class Asset(Base):
     website_safe = Column(Boolean, default=False)
     public_use_approved = Column(Boolean, default=False)
     brand_aligned = Column(Boolean, default=True)
-    alt_text = Column(Text, nullable=True)
+    alt_text = Column(Text, nullable=True)
+
+    # -------------------------------------------------------
+    # RIGHTS & USAGE GOVERNANCE — Phase 1.2
+    # -------------------------------------------------------
+    geographic_restrictions = Column(JSONB, nullable=True) # list of country codes or regions
+    platform_restrictions = Column(JSONB, nullable=True)   # list of platforms e.g. ["facebook", "tiktok"]
+    source_ownership = Column(String, nullable=True)       # e.g. "Internal", "Stock Agency X", "Photographer Y"
+    model_release_status = Column(String, default="Not Required") # "Pending", "Approved", "Not Required"

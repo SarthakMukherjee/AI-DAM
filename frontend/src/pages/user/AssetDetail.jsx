@@ -3,10 +3,11 @@ import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Download, Image, Video, FileText, Folder,
   CheckCircle2, XCircle, Clock3, Globe, Lock, AlertTriangle,
-  Tag, Brain, BarChart2, GitBranch, Copy, ExternalLink, CalendarClock, AlertCircle
+  Tag, Brain, BarChart2, GitBranch, Copy, ExternalLink, CalendarClock, AlertCircle, Link
 } from "lucide-react";
 import api, { API_BASE } from "../../api/axios";
 import Layout from "../../components/common/layout";
+import ShareModal from "../../components/common/ShareModal";
 import "../../styles/assetdetail.css";
 
 const TYPE_ICON = {
@@ -52,6 +53,7 @@ const AssetDetail = () => {
   const [placements, setPlacements] = useState([]);
   const [newPlacement, setNewPlacement] = useState({ platform: "", placement_url_or_id: "" });
   const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
 
   useEffect(() => {
     const fetchAssetAndExtras = async () => {
@@ -190,7 +192,7 @@ const AssetDetail = () => {
           <div className="asset-detail-actions">
             <div style={{ position: "relative" }}>
               <button 
-                className="asset-detail-btn-primary" 
+                className="btn-premium" 
                 onClick={() => setDownloadMenuOpen(!downloadMenuOpen)}
                 style={{ display: "flex", gap: "8px", alignItems: "center" }}
               >
@@ -200,14 +202,31 @@ const AssetDetail = () => {
               {downloadMenuOpen && (
                 <div style={{ position: "absolute", top: "100%", right: 0, marginTop: "4px", background: "white", border: "1px solid #e2e8f0", borderRadius: "6px", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)", zIndex: 50, minWidth: "200px" }}>
                   <button style={{ width: "100%", textAlign: "left", padding: "10px 14px", border: "none", background: "transparent", cursor: "pointer", fontSize: "0.85rem", borderBottom: "1px solid #f1f5f9" }} onClick={() => executeDownload()}>
-                    Original
+                    Original File
                   </button>
-                  <button style={{ width: "100%", textAlign: "left", padding: "10px 14px", border: "none", background: "transparent", cursor: "pointer", fontSize: "0.85rem", borderBottom: "1px solid #f1f5f9" }} onClick={() => executeDownload("webp", 1080, "auto")}>
-                    Web-Ready (WebP, 1080p)
-                  </button>
-                  <button style={{ width: "100%", textAlign: "left", padding: "10px 14px", border: "none", background: "transparent", cursor: "pointer", fontSize: "0.85rem" }} onClick={() => executeDownload(null, 400, "auto")}>
-                    Thumbnail (400px)
-                  </button>
+                  {asset.renditions && asset.renditions.length > 0 && asset.renditions.map(rend => (
+                    <button 
+                      key={rend.id} 
+                      style={{ width: "100%", textAlign: "left", padding: "10px 14px", border: "none", background: "transparent", cursor: "pointer", fontSize: "0.85rem", borderBottom: "1px solid #f1f5f9" }} 
+                      onClick={() => {
+                        // Assuming Cloudinary handles direct download or we open it
+                        window.open(rend.storage_path, '_blank');
+                        setDownloadMenuOpen(false);
+                      }}
+                    >
+                      Rendition: {rend.rendition_name} {rend.width && rend.height ? `(${rend.width}x${rend.height})` : ""}
+                    </button>
+                  ))}
+                  {(!asset.renditions || asset.renditions.length === 0) && (
+                    <>
+                      <button style={{ width: "100%", textAlign: "left", padding: "10px 14px", border: "none", background: "transparent", cursor: "pointer", fontSize: "0.85rem", borderBottom: "1px solid #f1f5f9" }} onClick={() => executeDownload("webp", 1080, "auto")}>
+                        Web-Ready (Auto-Gen)
+                      </button>
+                      <button style={{ width: "100%", textAlign: "left", padding: "10px 14px", border: "none", background: "transparent", cursor: "pointer", fontSize: "0.85rem" }} onClick={() => executeDownload(null, 400, "auto")}>
+                        Thumbnail (Auto-Gen)
+                      </button>
+                    </>
+                  )}
                 </div>
               )}
             </div>
@@ -217,6 +236,14 @@ const AssetDetail = () => {
                 Open Original
               </a>
             )}
+            <button 
+              className="btn-premium" 
+              onClick={() => setShareModalOpen(true)}
+              style={{ display: "flex", gap: "8px", alignItems: "center" }}
+            >
+              <Link size={16} />
+              Share
+            </button>
           </div>
         </div>
 
@@ -393,11 +420,32 @@ const AssetDetail = () => {
             )}
 
             {/* GOVERNANCE */}
-            {(asset.website_safe || asset.public_use_approved || governance.restriction_reason || governance.publish_note || governance.published_channels?.length > 0) && (
+            {(asset.website_safe || asset.public_use_approved || governance.restriction_reason || governance.publish_note || governance.published_channels?.length > 0 || asset.geographic_restrictions || asset.platform_restrictions || asset.source_ownership || asset.model_release_status !== "Not Required") && (
               <div className="asset-detail-card">
                 <div className="card-header"><Lock size={15} /><span>Governance</span></div>
                 <DetailRow label="Website Safe" value={asset.website_safe ? "Yes" : "No"} />
                 <DetailRow label="Public Use" value={asset.public_use_approved ? "Yes" : "No"} />
+                <DetailRow label="Source Ownership" value={asset.source_ownership} />
+                <DetailRow label="Model Release" value={asset.model_release_status} />
+                
+                {asset.geographic_restrictions?.length > 0 && (
+                  <div style={{ marginTop: "0.5rem" }}>
+                    <span className="detail-label">Geographic Restrictions</span>
+                    <div className="detail-tags" style={{ marginTop: "0.4rem" }}>
+                      {asset.geographic_restrictions.map((c) => <span key={c} className="asset-tag">{c}</span>)}
+                    </div>
+                  </div>
+                )}
+                
+                {asset.platform_restrictions?.length > 0 && (
+                  <div style={{ marginTop: "0.5rem" }}>
+                    <span className="detail-label">Platform Restrictions</span>
+                    <div className="detail-tags" style={{ marginTop: "0.4rem" }}>
+                      {asset.platform_restrictions.map((p) => <span key={p} className="asset-tag">{p}</span>)}
+                    </div>
+                  </div>
+                )}
+
                 <DetailRow label="Restriction Reason" value={governance.restriction_reason} />
                 <DetailRow label="Publish Note" value={governance.publish_note} />
                 {governance.published_channels?.length > 0 && (
@@ -431,6 +479,44 @@ const AssetDetail = () => {
                 </form>
               </div>
             </div>
+
+            {/* ASSET RELATIONSHIPS (Master / Derivatives) */}
+            {(asset.master_asset || (asset.derivatives && asset.derivatives.length > 0)) && (
+              <div className="asset-detail-card">
+                <div className="card-header"><GitBranch size={15} /><span>Asset Relationships</span></div>
+                
+                {asset.master_asset && (
+                  <div style={{ marginTop: "10px" }}>
+                    <span className="detail-label">Master Asset</span>
+                    <div 
+                      className="version-item" 
+                      onClick={() => navigate(`/assets/${asset.master_asset.id}`)}
+                      style={{ marginTop: "5px", cursor: "pointer", border: "1px solid var(--border)", padding: "8px", borderRadius: "6px" }}
+                    >
+                      <strong>{asset.master_asset.original_filename}</strong>
+                    </div>
+                  </div>
+                )}
+
+                {asset.derivatives && asset.derivatives.length > 0 && (
+                  <div style={{ marginTop: "10px" }}>
+                    <span className="detail-label">Derivatives ({asset.derivatives.length})</span>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginTop: "5px" }}>
+                      {asset.derivatives.map(d => (
+                        <div 
+                          key={d.id} 
+                          className="version-item"
+                          onClick={() => navigate(`/assets/${d.id}`)}
+                          style={{ cursor: "pointer", border: "1px solid var(--border)", padding: "8px", borderRadius: "6px" }}
+                        >
+                          <strong>{d.original_filename}</strong> <span style={{fontSize: "0.8rem", color: "#64748b"}}>v{d.version}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* VERSION HISTORY TREE */}
             <div className="asset-detail-card version-history-card">
@@ -510,6 +596,12 @@ const AssetDetail = () => {
           </div>
         )}
       </div>
+      {shareModalOpen && (
+        <ShareModal 
+          asset={asset}
+          onClose={() => setShareModalOpen(false)}
+        />
+      )}
     </Layout>
   );
 };

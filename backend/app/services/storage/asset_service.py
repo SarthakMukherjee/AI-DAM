@@ -1,4 +1,5 @@
 import os
+from app.core.config.settings import settings
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
@@ -38,6 +39,7 @@ class AssetService:
         metadata: dict = None,
         status: str = "draft",
         parent_id: str = None,
+        relationship_type: str = "master",
         changelog: str = None,
         uploaded_by: str = None,
     ):
@@ -134,7 +136,8 @@ class AssetService:
                     folder="ai-dam"
                 )
                 thumbnail_path = cloud_thumb
-                self.storage_service.delete_local_file(local_thumb)
+                if getattr(settings, "STORAGE_BACKEND", "local").lower() != "local":
+                    self.storage_service.delete_local_file(local_thumb)
 
         elif mime_type == "application/pdf":
             local_preview = self.pdf_preview_service.generate_preview(
@@ -148,7 +151,8 @@ class AssetService:
                     folder="ai-dam"
                 )
                 preview_path = cloud_preview
-                self.storage_service.delete_local_file(local_preview)
+                if getattr(settings, "STORAGE_BACKEND", "local").lower() != "local":
+                    self.storage_service.delete_local_file(local_preview)
 
         elif mime_type.startswith("video"):
             local_preview = self.video_preview_service.generate_preview(
@@ -162,9 +166,22 @@ class AssetService:
                     folder="ai-dam"
                 )
                 preview_path = cloud_preview
-                self.storage_service.delete_local_file(local_preview)
+                if getattr(settings, "STORAGE_BACKEND", "local").lower() != "local":
+                    self.storage_service.delete_local_file(local_preview)
 
         # =====================================================
+        # STEP 8.5 — AUTO-GENERATE RENDITIONS (Phase 2)
+        # =====================================================
+        
+        # We need the Asset ID first to link renditions, but we don't save the asset until Step 12.
+        # We will save the renditions in Step 12 by returning them and passing to db.
+        renditions = []
+        if mime_type.startswith("image/"):
+            from app.services.storage.rendition_service import RenditionService
+            # Temporarily set the ID for the generator so it can name files
+            temp_asset = Asset(id=asset_id_temp)
+            renditions = RenditionService.generate_image_renditions(temp_asset, db, original_path)
+
         # =====================================================
         # STEP 9 — UPLOAD ORIGINAL TO STORAGE BACKEND
         # =====================================================
@@ -188,8 +205,9 @@ class AssetService:
 
         storage_path = cloud_url
 
-        # NOW safe to delete local original
-        self.storage_service.delete_local_file(original_path)
+        # NOW safe to delete local original if not using local storage backend
+        if getattr(settings, "STORAGE_BACKEND", "local").lower() != "local":
+            self.storage_service.delete_local_file(original_path)
 
         # =====================================================
         # STEP 10 — VERSIONING
@@ -209,9 +227,15 @@ class AssetService:
             )
 
             if old_asset:
-                old_asset.is_latest = False
-                version = old_asset.version + 1
-                root_asset_id = old_asset.root_asset_id or old_asset.id
+                if relationship_type == "master":
+                    # This is a new version of the asset
+                    old_asset.is_latest = False
+                    version = old_asset.version + 1
+                    root_asset_id = old_asset.root_asset_id or old_asset.id
+                elif relationship_type == "derivative":
+                    # This is a derivative, it doesn't replace the parent
+                    version = 1
+                    root_asset_id = old_asset.root_asset_id or old_asset.id
 
         # =====================================================
         # STEP 11 — METADATA COMPLETENESS SCORE
@@ -224,6 +248,7 @@ class AssetService:
         # =====================================================
 
         asset = Asset(
+            id=asset_id_temp,
             original_filename=file.filename,
             stored_filename=filename,
             mime_type=mime_type,
@@ -238,6 +263,7 @@ class AssetService:
             parent_id=parent_id,
             root_asset_id=root_asset_id,
             is_latest=True,
+            relationship_type=relationship_type,
             perceptual_hash=perceptual_hash,
             completeness_score=completeness_score,
             changelog=changelog,
@@ -246,6 +272,12 @@ class AssetService:
 
         db.add(asset)
         db.flush()
+        
+        # Save renditions
+        if renditions:
+            for r in renditions:
+                db.add(r)
+            db.flush()
 
         if not asset.root_asset_id:
             asset.root_asset_id = asset.id

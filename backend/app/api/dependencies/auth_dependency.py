@@ -22,7 +22,6 @@ def get_current_user(
             detail="Not authenticated"
         )
 
-
     payload = decode_access_token(token)
 
     if payload is None:

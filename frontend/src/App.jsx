@@ -11,6 +11,7 @@ import AssetDetail from "./pages/user/AssetDetail";
 
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import UploadAsset from "./pages/admin/UploadAsset";
+import TaxonomyManagement from "./pages/admin/TaxonomyManagement";
 
 import ReviewQueue from "./pages/reviewer/ReviewQueue";
 
@@ -18,6 +19,7 @@ import SuperAdminDashboard from "./pages/superadmin/SuperAdminDashboard";
 import UserManagement from "./pages/superadmin/UserManagement";
 
 import Analytics from "./pages/shared/Analytics";
+import SharedAssetView from "./pages/shared/SharedAssetView";
 
 import "./styles/global.css";
 
@@ -62,6 +64,7 @@ const AppRoutes = () => {
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/" element={<RootRedirect />} />
+      <Route path="/share/:token" element={<SharedAssetView />} />
 
       {/* USER + CONTENT TEAM — Browse */}
       <Route
@@ -97,6 +100,14 @@ const AppRoutes = () => {
         element={
           <RoleGuard allowedRoles={["admin", "super_admin"]}>
             <UploadAsset />
+          </RoleGuard>
+        }
+      />
+      <Route
+        path="/admin/taxonomy"
+        element={
+          <RoleGuard allowedRoles={["admin", "super_admin"]}>
+            <TaxonomyManagement />
           </RoleGuard>
         }
       />

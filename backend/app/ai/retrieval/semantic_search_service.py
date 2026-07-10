@@ -152,6 +152,7 @@ def _format_results(
             "completeness_score": asset.completeness_score or 0,
             "ai_summary":         asset.ai_summary,
             "perceptual_hash":    asset.perceptual_hash,
+            "relationship_type":  asset.relationship_type,
             "match_explanation":  match_explanation,
         })
 

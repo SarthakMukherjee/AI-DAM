@@ -39,6 +39,9 @@ _ASSET_COLUMNS: list[tuple[str, str]] = [
     ("archived_at",     "TIMESTAMP WITH TIME ZONE"),
     ("archive_reason",  "TEXT"),
 
+    # Versioning & Derivatives - Phase 2
+    ("relationship_type", "VARCHAR DEFAULT 'master'"),
+
     # Video-specific fields — Phase 6.4
     ("video_duration_seconds", "INTEGER"),
     ("video_transcript",       "TEXT"),
@@ -49,6 +52,12 @@ _ASSET_COLUMNS: list[tuple[str, str]] = [
     ("public_use_approved", "BOOLEAN DEFAULT FALSE"),
     ("brand_aligned",       "BOOLEAN DEFAULT TRUE"),
     ("alt_text",            "TEXT"),
+
+    # Rights & Usage Governance — Phase 1.2
+    ("geographic_restrictions", "JSONB"),
+    ("platform_restrictions",   "JSONB"),
+    ("source_ownership",        "VARCHAR"),
+    ("model_release_status",    "VARCHAR DEFAULT 'Not Required'"),
 ]
 
 _USER_COLUMNS: list[tuple[str, str]] = [
