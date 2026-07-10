@@ -54,3 +54,4 @@ sentence-transformers
 
 cloudinary 
 httpx
+docx
