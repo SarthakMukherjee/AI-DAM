@@ -11,6 +11,8 @@ from app.services.storage.thumbnail_service import ThumbnailService
 from app.services.storage.pdf_preview_service import PDFPreviewService
 from app.services.storage.video_preview_service import VideoPreviewService
 from app.services.storage.word_preview_service import WordPreviewService
+from app.services.storage.ppt_preview_service import PPTPreviewService
+from app.services.storage.excel_preview_service import ExcelPreviewService
 from app.services.storage.cloud_service import CloudService
 from app.ai.retrieval.semantic_search_service import SemanticSearchService
 from app.ai.pipelines.enrichment_pipeline import EnrichmentPipeline
@@ -32,6 +34,8 @@ class AssetService:
         self.pdf_preview_service = PDFPreviewService()
         self.video_preview_service = VideoPreviewService()
         self.word_preview_service = WordPreviewService()
+        self.ppt_preview_service = PPTPreviewService()
+        self.excel_preview_service = ExcelPreviewService()
         self.enrichment_pipeline = EnrichmentPipeline()
 
     async def upload_asset(
@@ -173,6 +177,36 @@ class AssetService:
 
         elif mime_type in ["application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/msword"]:
             local_preview = self.word_preview_service.generate_preview(
+                original_path, filename
+            )
+            if local_preview:
+                cloud_preview = CloudService.upload(
+                    file_path=local_preview,
+                    public_id=f"previews/{asset_id_temp}_page1",
+                    resource_type="image",
+                    folder="ai-dam"
+                )
+                preview_path = cloud_preview
+                if getattr(settings, "STORAGE_BACKEND", "local").lower() != "local":
+                    self.storage_service.delete_local_file(local_preview)
+
+        elif mime_type in ["application/vnd.openxmlformats-officedocument.presentationml.presentation", "application/vnd.ms-powerpoint"]:
+            local_preview = self.ppt_preview_service.generate_preview(
+                original_path, filename
+            )
+            if local_preview:
+                cloud_preview = CloudService.upload(
+                    file_path=local_preview,
+                    public_id=f"previews/{asset_id_temp}_page1",
+                    resource_type="image",
+                    folder="ai-dam"
+                )
+                preview_path = cloud_preview
+                if getattr(settings, "STORAGE_BACKEND", "local").lower() != "local":
+                    self.storage_service.delete_local_file(local_preview)
+
+        elif mime_type in ["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/vnd.ms-excel"]:
+            local_preview = self.excel_preview_service.generate_preview(
                 original_path, filename
             )
             if local_preview:
