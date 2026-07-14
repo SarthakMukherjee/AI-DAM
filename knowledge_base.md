@@ -819,6 +819,15 @@ Frontend implementation:
 
 --- 
 
+### ✅ FEATURE 6.5: Office Document AI Tagging & Metadata Generation
+* **Objective:** Extend the AI tagging and metadata generation capabilities to support Word, Excel, and PowerPoint assets.
+* **Backend Logic:**
+  * Created `word_tagging_service.py`, `excel_tagging_service.py`, and `ppt_tagging_service.py` to extract text and core metadata properties from `.doc/.docx`, `.xls/.xlsx`, and `.ppt/.pptx` files.
+  * Patched `auto_tagging_service.py` to include these new tagging pipelines and updated the `suggest_metadata` logic to generate AI contexts for these document types.
+  * Updated `enrichment_pipeline.py` to correctly route Word, Excel, and PPT asset types to their corresponding tagging pipelines.
+
+--- 
+
 ### ✅ FEATURE 7.1: Website & Marketing Context Flag Fields
 * **Objective:** Add explicit governance flags for website and public campaign safety.
 * **Database / Schema:**
