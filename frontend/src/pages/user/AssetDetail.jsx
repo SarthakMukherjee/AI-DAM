@@ -173,6 +173,9 @@ const AssetDetail = () => {
   const rawPreview = asset.thumbnail_url || asset.preview_url || asset.thumbnail_path || asset.preview_path || asset.storage_path;
   const previewUrl = rawPreview?.startsWith("http") ? rawPreview : `${API_BASE}/assets/${asset.id}/preview${token ? `?token=${token}` : ''}`;
 
+  const rawStream = asset.storage_path;
+  const streamUrl = rawStream?.startsWith("http") ? rawStream : `${API_BASE}/assets/${asset.id}/stream${token ? `?token=${token}` : ''}`;
+
   const completeness = computeCompleteness(asset);
   const completenessColor = completeness >= 80 ? "var(--success)" : completeness >= 50 ? "var(--warning)" : "var(--danger)";
 
@@ -255,8 +258,10 @@ const AssetDetail = () => {
                 <img src={previewUrl} alt={assetName} />
               ) : asset.mime_type === "application/pdf" && previewUrl ? (
                 <iframe src={previewUrl} title={assetName} />
-              ) : asset.mime_type?.startsWith("video/") && previewUrl ? (
-                <video src={previewUrl} controls />
+              ) : asset.mime_type?.startsWith("video/") && streamUrl ? (
+                <video src={streamUrl} controls poster={previewUrl} />
+              ) : previewUrl ? (
+                <img src={previewUrl} alt={assetName} />
               ) : (
                 <div className="asset-detail-preview-placeholder">
                   <FileIcon size={64} />

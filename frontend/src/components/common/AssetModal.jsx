@@ -60,6 +60,11 @@ const AssetModal = ({ asset, onClose, onDelete, onArchive, showDelete }) => {
     ? rawPreview
     : `${API_BASE}/assets/${asset.id}/preview${token ? `?token=${token}` : ''}`;
 
+  const rawStream = asset.storage_path;
+  const streamUrl = rawStream?.startsWith("http")
+    ? rawStream
+    : `${API_BASE}/assets/${asset.id}/stream${token ? `?token=${token}` : ''}`;
+
   useEffect(() => {
     const handler = (e) => {
       if (e.key === "Escape") {
@@ -181,9 +186,17 @@ const AssetModal = ({ asset, onClose, onDelete, onArchive, showDelete }) => {
               />
             ) : asset.mime_type?.startsWith("video/") ? (
               <video
-                src={previewUrl}
+                src={streamUrl}
                 controls
+                poster={previewUrl}
                 className="modal-preview-video"
+              />
+            ) : previewUrl ? (
+              <img
+                src={previewUrl}
+                alt={assetName}
+                className="modal-preview-img"
+                loading="lazy"
               />
             ) : (
               <div className="modal-preview-placeholder">

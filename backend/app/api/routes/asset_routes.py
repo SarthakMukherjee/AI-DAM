@@ -467,6 +467,51 @@ def download_asset(
 
 
 # -----------------------------------
+# STREAM
+# serves media inline for video/audio
+# -----------------------------------
+
+@router.get("/{asset_id}/stream")
+def stream_asset(
+    asset_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    asset = db.query(Asset).filter(Asset.id == asset_id).first()
+
+    if not asset:
+        raise HTTPException(status_code=404, detail="Asset not found")
+
+    if (
+        current_user.role == "user"
+        and (asset.status != "approved" and asset.status != "restricted" or not asset.is_latest)
+    ):
+        raise HTTPException(status_code=403, detail="Asset not available")
+
+    # Enforce Phase 4.1 restricted access control
+    check_restricted_access(asset, current_user)
+
+    log_usage(asset_id, "stream", db, user_id=current_user.id)
+
+    # cloud URL — redirect browser directly
+    if is_cloud_url(asset.storage_path):
+        return RedirectResponse(url=asset.storage_path)
+
+    # local file — serve directly inline
+    file_path = asset.storage_path
+    from app.core.config.settings import settings
+    if not os.path.exists(file_path) and os.path.exists(os.path.join(settings.STORAGE_PATH, file_path)):
+        file_path = os.path.join(settings.STORAGE_PATH, file_path)
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="File not found on local storage")
+
+    return FileResponse(
+        path=file_path,
+        media_type=asset.mime_type
+    )
+
+
+# -----------------------------------
 # PREVIEW
 # redirects to cloud URL or serves local
 # -----------------------------------
