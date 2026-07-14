@@ -53,6 +53,39 @@ class EnrichmentPipeline:
             )
 
         # -----------------------------------
+        # WORD PIPELINE
+        # -----------------------------------
+
+        elif asset_type in ["doc", "docx"]:
+
+            return (
+                self.auto_tagging_service
+                .process_word(file_path)
+            )
+
+        # -----------------------------------
+        # EXCEL PIPELINE
+        # -----------------------------------
+
+        elif asset_type in ["xls", "xlsx"]:
+
+            return (
+                self.auto_tagging_service
+                .process_excel(file_path)
+            )
+
+        # -----------------------------------
+        # PPT PIPELINE
+        # -----------------------------------
+
+        elif asset_type in ["ppt", "pptx"]:
+
+            return (
+                self.auto_tagging_service
+                .process_ppt(file_path)
+            )
+
+        # -----------------------------------
         # UNSUPPORTED
         # -----------------------------------
 

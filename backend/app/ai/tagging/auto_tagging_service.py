@@ -14,6 +14,9 @@ from app.ai.ocr.ocr_service import OCRService
 from app.ai.tagging.image_tagging_service import ImageTaggingService
 from app.ai.tagging.video_tagging_service import VideoTaggingService
 from app.ai.tagging.pdf_tagging_service import PDFTaggingService
+from app.ai.tagging.word_tagging_service import WordTaggingService
+from app.ai.tagging.excel_tagging_service import ExcelTaggingService
+from app.ai.tagging.ppt_tagging_service import PPTTaggingService
 from app.ai.tagging.tag_cleaner_service import TagCleanerService
 
 from dotenv import load_dotenv
@@ -31,6 +34,10 @@ class AutoTaggingService:
         self.video_service = VideoTaggingService()
 
         self.pdf_service = PDFTaggingService()
+        
+        self.word_service = WordTaggingService()
+        self.excel_service = ExcelTaggingService()
+        self.ppt_service = PPTTaggingService()
 
         self.client = Groq(api_key=GROQ_API_KEY)
 
@@ -116,6 +123,39 @@ class AutoTaggingService:
                 "subject": doc_metadata.get("subject", ""),
                 "keywords": doc_metadata.get("keywords", ""),
                 "page_count": page_count
+            }
+        elif asset_type in ["doc", "docx"]:
+            detected_type = "document"
+            extracted_text = self.word_service.extract_text(file_path)
+            doc_metadata = self.word_service.extract_metadata(file_path)
+            extracted_context = {
+                "extracted_text": extracted_text[:3000],
+                "title": doc_metadata.get("title", ""),
+                "author": doc_metadata.get("author", ""),
+                "subject": doc_metadata.get("subject", ""),
+                "keywords": doc_metadata.get("keywords", "")
+            }
+        elif asset_type in ["xls", "xlsx"]:
+            detected_type = "document"
+            extracted_text = self.excel_service.extract_text(file_path)
+            doc_metadata = self.excel_service.extract_metadata(file_path)
+            extracted_context = {
+                "extracted_text": extracted_text[:3000],
+                "title": doc_metadata.get("title", ""),
+                "author": doc_metadata.get("author", ""),
+                "subject": doc_metadata.get("subject", ""),
+                "keywords": doc_metadata.get("keywords", "")
+            }
+        elif asset_type in ["ppt", "pptx"]:
+            detected_type = "pitch_deck"
+            extracted_text = self.ppt_service.extract_text(file_path)
+            doc_metadata = self.ppt_service.extract_metadata(file_path)
+            extracted_context = {
+                "extracted_text": extracted_text[:3000],
+                "title": doc_metadata.get("title", ""),
+                "author": doc_metadata.get("author", ""),
+                "subject": doc_metadata.get("subject", ""),
+                "keywords": doc_metadata.get("keywords", "")
             }
         elif asset_type in ["mp4", "mov", "avi", "mkv", "webm"]:
             detected_type = "video"
@@ -392,6 +432,105 @@ class AutoTaggingService:
             structured_context
         )
 
+        ai_summary = self.generate_ai_summary(structured_context)
+
+        return {
+            "ai_tags": cleaned_tags,
+            "image_caption": "",
+            "detected_objects": [],
+            "extracted_text": extracted_text,
+            "searchable_tags": cleaned_tags,
+            "enrichment_status": "completed",
+            "ai_summary": ai_summary,
+        }
+
+    # -----------------------------------
+    # WORD PIPELINE
+    # -----------------------------------
+
+    def process_word(
+        self,
+        word_path: str
+    ) -> dict:
+
+        extracted_text = self.word_service.extract_text(word_path)
+        doc_metadata = self.word_service.extract_metadata(word_path)
+
+        structured_context = {
+            "extracted_text": extracted_text[:3000],
+            "title": doc_metadata.get("title", ""),
+            "author": doc_metadata.get("author", ""),
+            "subject": doc_metadata.get("subject", ""),
+            "keywords": doc_metadata.get("keywords", "")
+        }
+
+        cleaned_tags = self._generate_tags_from_context(structured_context)
+        ai_summary = self.generate_ai_summary(structured_context)
+
+        return {
+            "ai_tags": cleaned_tags,
+            "image_caption": "",
+            "detected_objects": [],
+            "extracted_text": extracted_text,
+            "searchable_tags": cleaned_tags,
+            "enrichment_status": "completed",
+            "ai_summary": ai_summary,
+        }
+
+    # -----------------------------------
+    # EXCEL PIPELINE
+    # -----------------------------------
+
+    def process_excel(
+        self,
+        excel_path: str
+    ) -> dict:
+
+        extracted_text = self.excel_service.extract_text(excel_path)
+        doc_metadata = self.excel_service.extract_metadata(excel_path)
+
+        structured_context = {
+            "extracted_text": extracted_text[:3000],
+            "title": doc_metadata.get("title", ""),
+            "author": doc_metadata.get("author", ""),
+            "subject": doc_metadata.get("subject", ""),
+            "keywords": doc_metadata.get("keywords", "")
+        }
+
+        cleaned_tags = self._generate_tags_from_context(structured_context)
+        ai_summary = self.generate_ai_summary(structured_context)
+
+        return {
+            "ai_tags": cleaned_tags,
+            "image_caption": "",
+            "detected_objects": [],
+            "extracted_text": extracted_text,
+            "searchable_tags": cleaned_tags,
+            "enrichment_status": "completed",
+            "ai_summary": ai_summary,
+        }
+
+    # -----------------------------------
+    # PPT PIPELINE
+    # -----------------------------------
+
+    def process_ppt(
+        self,
+        ppt_path: str
+    ) -> dict:
+
+        extracted_text = self.ppt_service.extract_text(ppt_path)
+        doc_metadata = self.ppt_service.extract_metadata(ppt_path)
+
+        structured_context = {
+            "extracted_text": extracted_text[:3000],
+            "title": doc_metadata.get("title", ""),
+            "author": doc_metadata.get("author", ""),
+            "subject": doc_metadata.get("subject", ""),
+            "keywords": doc_metadata.get("keywords", "")
+        }
+
+        cleaned_tags = self._generate_tags_from_context(structured_context)
         ai_summary = self.generate_ai_summary(structured_context)
 
         return {
