@@ -66,7 +66,7 @@ class Settings(BaseSettings):
     seed_super_admin_password: str
 
     class Config:
-        # ======= Added on 09-07-26 ========
+        # ======= Added on 09-07-26 ========0
         import os
         from pathlib import Path
         # Resolve to the backend directory
