@@ -11,7 +11,7 @@ from app.ai.retrieval.semantic_search_service import (
 
 from app.ai.vectorstore.vector_delete_service import (
     VectorDeleteService
-)
+) 
 
 
 class DuplicateMergeService:
