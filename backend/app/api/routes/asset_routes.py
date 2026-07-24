@@ -549,13 +549,20 @@ def preview_asset(
         preview_path = os.path.join(settings.STORAGE_PATH, preview_path)
     if not os.path.exists(preview_path):
         raise HTTPException(status_code=404, detail="Preview file not found on local storage")
+    
+    print("-"*50)
+    print("Asset Preview Path:",preview_path)
+    print("Asset MIME type:", asset.mime_type)
+    print("-"*50)
+
+    import mimetypes
+    guessed_type, _ = mimetypes.guess_type(preview_path)
+    final_media_type = guessed_type or asset.mime_type
 
     return FileResponse(
         path=preview_path,
-        media_type=asset.mime_type
+        media_type=final_media_type
     )
-
-
 # -----------------------------------
 # PDF VIEWER
 # -----------------------------------

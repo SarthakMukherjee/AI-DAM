@@ -1,4 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi.responses import FileResponse, RedirectResponse
+import os
+import mimetypes
+from app.core.config.settings import settings
+from app.api.routes.asset_routes import is_cloud_url
 from sqlalchemy.orm import Session
 from app.api.dependencies.database import get_db
 from app.api.dependencies.auth_dependency import require_reviewer
@@ -67,6 +72,41 @@ def approve_asset(asset_id: str, request: Request, body: ApproveRequest = None, 
     )
     db.commit()
     return {"message": "Asset approved", "asset_id": asset_id}
+
+@router.get("/assets/{asset_id}/preview")
+def preview_asset_for_reviewer(
+    asset_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_reviewer)
+):
+    asset = db.query(Asset).filter(Asset.id == asset_id).first()
+    if not asset:
+        raise HTTPException(status_code=404, detail="Asset not found")
+
+    check_reviewer_scope(asset, current_user)
+
+    preview_path = asset.preview_path or asset.thumbnail_path or asset.storage_path
+
+    if not preview_path:
+        raise HTTPException(status_code=404, detail="Preview unavailable")
+
+    # cloud URL — redirect
+    if is_cloud_url(preview_path):
+        return RedirectResponse(url=preview_path)
+
+    # local file
+    if not os.path.exists(preview_path) and os.path.exists(os.path.join(settings.STORAGE_PATH, preview_path)):
+        preview_path = os.path.join(settings.STORAGE_PATH, preview_path)
+    if not os.path.exists(preview_path):
+        raise HTTPException(status_code=404, detail="Preview file not found on local storage")
+
+    guessed_type, _ = mimetypes.guess_type(preview_path)
+    final_media_type = guessed_type or asset.mime_type
+
+    return FileResponse(
+        path=preview_path,
+        media_type=final_media_type
+    )
 
 @router.post("/assets/{asset_id}/reject")
 def reject_asset(asset_id: str, request: Request, body: ReviewRequest, db: Session = Depends(get_db), current_user: User = Depends(require_reviewer)):

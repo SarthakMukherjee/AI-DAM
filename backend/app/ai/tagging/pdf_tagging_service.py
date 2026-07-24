@@ -19,48 +19,36 @@ class PDFTaggingService:
         pdf_path: str
     ) -> str:
 
+        document = None
         try:
-
             document = fitz.open(pdf_path)
-
             all_text = []
 
             for page in document:
-
                 # -----------------------------------
                 # DIRECT TEXT EXTRACTION
                 # works for text-based PDFs
                 # -----------------------------------
-
                 page_text = page.get_text().strip()
-
                 if page_text:
-
                     all_text.append(page_text)
-
                 else:
-
                     # -----------------------------------
                     # OCR FALLBACK
                     # for scanned/image-only pages
                     # -----------------------------------
-
                     ocr_text = self._ocr_page(page)
-
                     if ocr_text:
                         all_text.append(ocr_text)
-
-            document.close()
 
             return "\n".join(all_text).strip()
 
         except Exception as e:
-
-            print(
-                f"PDF text extraction failed: {e}"
-            )
-
+            print(f"PDF text extraction failed: {e}")
             return ""
+        finally:
+            if document:
+                document.close()
 
     # -----------------------------------
     # OCR A SINGLE PAGE
@@ -109,13 +97,10 @@ class PDFTaggingService:
         pdf_path: str
     ) -> dict:
 
+        document = None
         try:
-
             document = fitz.open(pdf_path)
-
-            meta = document.metadata
-
-            document.close()
+            meta = document.metadata or {}
 
             return {
                 "title": meta.get("title", ""),
@@ -125,17 +110,16 @@ class PDFTaggingService:
             }
 
         except Exception as e:
-
-            print(
-                f"PDF metadata extraction failed: {e}"
-            )
-
+            print(f"PDF metadata extraction failed: {e}")
             return {
                 "title": "",
                 "author": "",
                 "subject": "",
                 "keywords": ""
             }
+        finally:
+            if document:
+                document.close()
 
     # -----------------------------------
     # PAGE COUNT
@@ -146,20 +130,15 @@ class PDFTaggingService:
         pdf_path: str
     ) -> int:
 
+        document = None
         try:
-
             document = fitz.open(pdf_path)
-
             count = document.page_count
-
-            document.close()
-
             return count
 
         except Exception as e:
-
-            print(
-                f"Page count failed: {e}"
-            )
-
+            print(f"Page count failed: {e}")
             return 0
+        finally:
+            if document:
+                document.close()

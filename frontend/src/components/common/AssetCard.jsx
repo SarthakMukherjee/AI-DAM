@@ -118,11 +118,12 @@ const AssetCard = ({
                 onError={() => setImgError(true)}
               />
             ) : asset.mime_type === "application/pdf" ? (
-              <iframe 
+              <img 
                 src={previewUrl} 
-                title={assetName}
-                style={{ width: '100%', height: '100%', border: 'none', pointerEvents: 'none', overflow: 'hidden' }}
-                scrolling="no"
+                alt={assetName}
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                loading="lazy"
+                onError={() => setImgError(true)}
               />
             ) : (
               <div className="asset-card-icon">{icon}</div>

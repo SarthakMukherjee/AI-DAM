@@ -146,8 +146,8 @@ const ReviewQueue = () => {
                                  asset.mime_type?.includes("document");
               
               const token = localStorage.getItem("access_token");
-              const previewUrl = !isDocument && rawPreview 
-                ? (rawPreview.startsWith("http") ? rawPreview : `${API_BASE}/assets/${asset.id}/preview${token ? `?token=${token}` : ''}`)
+              const previewUrl = rawPreview 
+                ? (rawPreview.startsWith("http") ? rawPreview : `${API_BASE}/reviewer/assets/${asset.id}/preview${token ? `?token=${token}` : ''}`)
                 : null;
 
               const statusCfg = STATUS_CONFIG[asset.status] || { label: asset.status, cls: "badge-warning" };

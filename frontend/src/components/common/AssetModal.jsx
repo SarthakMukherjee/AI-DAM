@@ -179,10 +179,15 @@ const AssetModal = ({ asset, onClose, onDelete, onArchive, showDelete }) => {
                 }}
               />
             ) : asset.mime_type === "application/pdf" ? (
-              <iframe
+              <img
                 src={previewUrl}
+                alt={assetName}
                 className="modal-preview-pdf"
                 title={assetName}
+                loading="lazy"
+                onError={(e) => {
+                  console.error("Failed PDF preview:", e.target.src);
+                }}
               />
             ) : asset.mime_type?.startsWith("video/") ? (
               <video

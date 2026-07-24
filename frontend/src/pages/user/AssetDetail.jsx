@@ -257,7 +257,7 @@ const AssetDetail = () => {
               {asset.mime_type?.startsWith("image/") && previewUrl ? (
                 <img src={previewUrl} alt={assetName} />
               ) : asset.mime_type === "application/pdf" && previewUrl ? (
-                <iframe src={previewUrl} title={assetName} />
+                <img src={previewUrl} alt={assetName} />
               ) : asset.mime_type?.startsWith("video/") && streamUrl ? (
                 <video src={streamUrl} controls poster={previewUrl} />
               ) : previewUrl ? (

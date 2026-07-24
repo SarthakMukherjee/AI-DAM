@@ -49,8 +49,11 @@ class StorageService:
         return original_path.replace("\\", "/")
 
     def delete_temp_file(self, temp_path: str):
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
+        try:
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+        except Exception as e:
+            print(f"Failed to delete temp file {temp_path}: {e}")
 
     def delete_local_file(self, file_path: str):
         """Delete local file after successful cloud upload (unless storage backend is local)."""

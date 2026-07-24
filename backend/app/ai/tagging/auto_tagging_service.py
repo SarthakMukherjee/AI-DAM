@@ -224,18 +224,34 @@ class AutoTaggingService:
         {json.dumps(extracted_context, indent=2)}
         """
 
-        response = self.client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.3,
-            response_format={"type": "json_object"}
-        )
-
-        llm_response = response.choices[0].message.content
-        parsed_response = json.loads(llm_response)
-        return parsed_response
+        try:
+            response = self.client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.3,
+                response_format={"type": "json_object"}
+            )
+            llm_response = response.choices[0].message.content
+            parsed_response = json.loads(llm_response)
+            return parsed_response
+        except Exception as e:
+            print(f"AI tagging failed: {e}")
+            return {
+                "asset_name": filename,
+                "asset_type": detected_type,
+                "description": "",
+                "created_by": "Admin",
+                "owner": "Marketing Team",
+                "usage_rights": "Internal Only",
+                "domain": "Marketing",
+                "use_case": "presentation",
+                "audience": "b2b",
+                "funnel_stage": "awareness",
+                "tone": "professional",
+                "keywords": ""
+            }
         
         # END
 

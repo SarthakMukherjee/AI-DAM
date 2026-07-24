@@ -164,8 +164,8 @@ const SharedAssetView = () => {
                 <img src={previewUrl} alt={assetData.original_filename} style={{ maxWidth: '100%', maxHeight: '600px', objectFit: 'contain' }} />
               ) : assetData.mime_type?.startsWith("video/") ? (
                 <video src={assetData.storage_path?.startsWith("http") ? assetData.storage_path : `${API_BASE}/assets/${assetData.asset_id}/stream`} controls poster={previewUrl} style={{ maxWidth: '100%', maxHeight: '600px' }} />
-              ) : assetData.mime_type === "application/pdf" ? (
-                <iframe src={previewUrl} title={assetData.original_filename} style={{ width: '100%', height: '600px', border: 'none' }} />
+              ) : assetData.mime_type === "application/pdf" && previewUrl ? (
+                <img src={previewUrl} alt={assetData.original_filename} style={{ maxWidth: '100%', maxHeight: '600px', objectFit: 'contain' }} />
               ) : previewUrl ? (
                 <img src={previewUrl} alt={assetData.original_filename} style={{ maxWidth: '100%', maxHeight: '600px', objectFit: 'contain' }} />
               ) : (
