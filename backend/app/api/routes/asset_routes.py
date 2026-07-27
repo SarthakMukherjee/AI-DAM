@@ -12,6 +12,8 @@ from fastapi import (
 import os
 import json
 
+from app.core.config.settings import settings
+
 from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
@@ -464,6 +466,54 @@ def download_asset(
         path=file_path,
         filename=asset.original_filename
     )
+
+
+# -----------------------------------
+# RENDITION DOWNLOAD
+# -----------------------------------
+
+@router.get("/renditions/{rendition_id}/download")
+def download_rendition(
+    rendition_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    from app.models.asset.asset_rendition_model import AssetRendition
+    rendition = db.query(AssetRendition).filter(AssetRendition.id == rendition_id).first()
+    if not rendition:
+        raise HTTPException(status_code=404, detail="Rendition not found")
+
+    asset = db.query(Asset).filter(Asset.id == rendition.asset_id).first()
+    if not asset:
+        raise HTTPException(status_code=404, detail="Parent asset not found")
+
+    if (
+        current_user.role == "user"
+        and (asset.status != "approved" and asset.status != "restricted" or not asset.is_latest)
+    ):
+        raise HTTPException(status_code=403, detail="Asset not available")
+
+    check_restricted_access(asset, current_user)
+    log_usage(asset.id, "download", db, user_id=current_user.id)
+
+    if is_cloud_url(rendition.storage_path):
+        return RedirectResponse(url=rendition.storage_path)
+
+    file_path = rendition.storage_path
+    if not os.path.exists(file_path) and os.path.exists(os.path.join(settings.STORAGE_PATH, file_path)):
+        file_path = os.path.join(settings.STORAGE_PATH, file_path)
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="Rendition file not found on local storage")
+
+    import mimetypes
+    guessed_type, _ = mimetypes.guess_type(file_path)
+
+    return FileResponse(
+        path=file_path,
+        media_type=guessed_type,
+        filename=f"{asset.original_filename}_{rendition.rendition_name}{os.path.splitext(file_path)[1]}"
+    )
+
 
 
 # -----------------------------------

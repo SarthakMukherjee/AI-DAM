@@ -134,6 +134,25 @@ const AssetDetail = () => {
     setDownloadMenuOpen(false);
   };
 
+  const executeRenditionDownload = async (rend) => {
+    try {
+      const res = await api.get(`/assets/renditions/${rend.id}/download`, { responseType: "blob" });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      
+      const ext = rend.storage_path?.split('.').pop() || "jpg";
+      const filename = `${assetName}_${rend.rendition_name}.${ext}`;
+      link.download = filename;
+      
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch { alert("Rendition download failed."); }
+    setDownloadMenuOpen(false);
+  };
+
   const handleAddPlacement = async (e) => {
     e.preventDefault();
     if (!newPlacement.platform || !newPlacement.placement_url_or_id) return;
@@ -212,9 +231,7 @@ const AssetDetail = () => {
                       key={rend.id} 
                       style={{ width: "100%", textAlign: "left", padding: "10px 14px", border: "none", background: "transparent", cursor: "pointer", fontSize: "0.85rem", borderBottom: "1px solid #f1f5f9" }} 
                       onClick={() => {
-                        // Assuming Cloudinary handles direct download or we open it
-                        window.open(rend.storage_path, '_blank');
-                        setDownloadMenuOpen(false);
+                        executeRenditionDownload(rend);
                       }}
                     >
                       Rendition: {rend.rendition_name} {rend.width && rend.height ? `(${rend.width}x${rend.height})` : ""}
@@ -405,6 +422,7 @@ const AssetDetail = () => {
                 <DetailRow label="Audience" value={business.audience} />
                 <DetailRow label="Use Case" value={business.use_case} />
                 <DetailRow label="Funnel Stage" value={business.funnel_stage} />
+                <DetailRow label="Expiry Date" value={business.expiry_date} />
               </div>
             </div>
 

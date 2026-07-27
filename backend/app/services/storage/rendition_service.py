@@ -49,21 +49,36 @@ class RenditionService:
                         folder="ai-dam"
                     )
                     
-                    if cloud_url:
-                        rendition = AssetRendition(
-                            asset_id=asset.id,
-                            rendition_name=spec["name"],
-                            storage_path=cloud_url,
-                            mime_type="image/jpeg",
-                            file_size=os.path.getsize(rendition_path),
-                            width=img_copy.width,
-                            height=img_copy.height
-                        )
-                        renditions.append(rendition)
+                    file_size = os.path.getsize(rendition_path)
+                    final_storage_path = None
+                    
+                    backend = getattr(settings, "STORAGE_BACKEND", "local").lower()
+                    if backend != "local" and cloud_url:
+                        final_storage_path = cloud_url
+                        # Cleanup temp
+                        if os.path.exists(rendition_path):
+                            os.remove(rendition_path)
+                    else:
+                        import shutil
+                        local_renditions_dir = os.path.join(settings.STORAGE_PATH, "renditions")
+                        os.makedirs(local_renditions_dir, exist_ok=True)
                         
-                    # Cleanup temp
-                    if os.path.exists(rendition_path):
-                        os.remove(rendition_path)
+                        local_dest_path = os.path.join(local_renditions_dir, rendition_filename)
+                        shutil.move(rendition_path, local_dest_path)
+                        
+                        # Store relative path for local storage
+                        final_storage_path = f"renditions/{rendition_filename}"
+                    
+                    rendition = AssetRendition(
+                        asset_id=asset.id,
+                        rendition_name=spec["name"],
+                        storage_path=final_storage_path,
+                        mime_type="image/jpeg",
+                        file_size=file_size,
+                        width=img_copy.width,
+                        height=img_copy.height
+                    )
+                    renditions.append(rendition)
             
             return renditions
         except Exception as e:
