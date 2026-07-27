@@ -146,12 +146,13 @@ class KeywordSearchService:
             role_containment = Asset.asset_metadata["governance"]["restricted_to_roles"].contains([current_user.role])
             base_query = base_query.filter(or_(Asset.status != "restricted", role_containment))
 
-        if approved_only:
-            base_query = (
-                base_query.filter(
-                    Asset.status == "approved"
-                )
-            )
+        # Enforce strict role-based access for non-admins (override approved_only flag)
+        user_role = current_user.role if current_user else None
+        # if user_role in ["user", "sales_user", "external_partner"]:
+        if user_role == "user":
+            base_query = base_query.filter(Asset.status.in_(["approved", "published"]))
+        elif approved_only:
+            base_query = base_query.filter(Asset.status.in_(["approved", "published"]))
 
         # Apply faceted filters (post approved_only, pre text search)
         base_query = _apply_facet_filters(base_query, filters or {})

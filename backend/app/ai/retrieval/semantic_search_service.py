@@ -89,8 +89,15 @@ def _format_results(
         if not asset:
             continue
 
-        # Status filtering
-        if approved_only and asset.status not in ("approved", "published"):
+        # Enforce strict role-based access for non-admins (override approved_only flag)
+        user_role = current_user.role if current_user else None
+        # if user_role in ["user", "sales_user", "external_partner"]:
+        if user_role == "user":
+            if asset.status not in ("approved", "published") or not asset.is_latest:
+                continue
+
+        # Status filtering (for admins who might optionally pass approved_only=True)
+        elif approved_only and asset.status not in ("approved", "published"):
             continue
 
         # Skip archived assets — hidden from all search results
@@ -264,4 +271,4 @@ class SemanticSearchService:
             filters=filters,
             query=query,
             current_user=current_user,
-        )
+        )
