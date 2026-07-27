@@ -105,10 +105,11 @@ const UploadAsset = () => {
 
   // Batch upload state
   const [batchMode, setBatchMode] = useState(false);
-  const [batchQueue, setBatchQueue] = useState([]); // [{file, status, progress, error, assetName}]
+  const [batchQueue, setBatchQueue] = useState([]); // [{file, status, progress, error, assetName, metadataConfirmed}]
   const [batchRunning, setBatchRunning] = useState(false);
   const [batchDone, setBatchDone] = useState(false);
   const [editingBatchItem, setEditingBatchItem] = useState(null);
+  const [pendingEditQueue, setPendingEditQueue] = useState([]); // IDs awaiting metadata confirmation
 
   const { user } = useContext(AuthContext);
 
@@ -196,6 +197,11 @@ const UploadAsset = () => {
           }
         }
 
+        if (!updates.description) {
+          updates.description = `Digital asset: ${selectedFile.name}`;
+          suggestedKeys.push("description");
+        }
+
         setForm((prev) => ({ ...prev, ...updates }));
         setAiSuggestedFields(suggestedKeys);
         setTimeout(() => setStep(1), 1200);
@@ -276,9 +282,15 @@ const UploadAsset = () => {
       progress: 0,
       error: null,
       assetName: f.name.replace(/\.[^/.]+$/, ""),
-      metadata: { ...defaultForm, asset_name: f.name.replace(/\.[^/.]+$/, "") }
+      metadata: { ...defaultForm, asset_name: f.name.replace(/\.[^/.]+$/, "") },
+      metadataConfirmed: false,
+      aiSuggestedFields: [],
     }));
     setBatchQueue((prev) => [...prev, ...newItems]);
+
+    // Track IDs that need editing after analysis
+    const editIds = newItems.map((item) => item.id);
+    setPendingEditQueue((prev) => [...prev, ...editIds]);
 
     // Kick off AI analysis immediately for each
     newItems.forEach(async (item) => {
@@ -304,17 +316,26 @@ const UploadAsset = () => {
           keywords:     data.keywords,
         };
         const updates = {};
+        const suggestedKeys = [];
         for (const [key, val] of Object.entries(FIELD_MAP)) {
           if (val && String(val).trim()) {
             updates[key] = String(val).trim();
+            suggestedKeys.push(key);
           }
+        }
+
+        // If AI omitted description, provide a fallback so it isn't empty in the modal
+        if (!updates.description) {
+          updates.description = `Digital asset: ${item.file.name}`;
+          suggestedKeys.push("description");
         }
         
         setBatchQueue(prev => prev.map(qItem => 
           qItem.id === item.id ? { 
             ...qItem, 
             status: BATCH_STATUS.QUEUED, 
-            metadata: { ...qItem.metadata, ...updates } 
+            metadata: { ...qItem.metadata, ...updates },
+            aiSuggestedFields: suggestedKeys,
           } : qItem
         ));
       } catch {
@@ -338,8 +359,32 @@ const UploadAsset = () => {
   };
 
 
+  // Auto-open edit modal for the next unconfirmed item when one finishes analysis
+  useEffect(() => {
+    if (!batchMode || editingBatchItem || pendingEditQueue.length === 0) return;
+
+    // Find the first pending ID whose analysis is done (status = QUEUED)
+    const nextId = pendingEditQueue.find((id) => {
+      const item = batchQueue.find((q) => q.id === id);
+      return item && item.status === BATCH_STATUS.QUEUED && !item.metadataConfirmed;
+    });
+
+    if (nextId) {
+      const item = batchQueue.find((q) => q.id === nextId);
+      if (item) {
+        setEditingBatchItem(item);
+        setPendingEditQueue((prev) => prev.filter((id) => id !== nextId));
+      }
+    }
+  }, [batchMode, batchQueue, pendingEditQueue, editingBatchItem]);
+
+  // Check if all queued items have confirmed metadata
+  const allMetadataConfirmed = batchQueue
+    .filter((i) => i.status === BATCH_STATUS.QUEUED)
+    .every((i) => i.metadataConfirmed);
+
   const runBatchUpload = async () => {
-    const queued = batchQueue.filter((i) => i.status === BATCH_STATUS.QUEUED);
+    const queued = batchQueue.filter((i) => i.status === BATCH_STATUS.QUEUED && i.metadataConfirmed);
     if (queued.length === 0) return;
 
     setBatchRunning(true);
@@ -596,12 +641,18 @@ const UploadAsset = () => {
                 <div className="batch-queue-header">
                   <span className="batch-queue-title">
                     Upload Queue — {batchQueue.length} file{batchQueue.length !== 1 ? "s" : ""}
+                    {!allMetadataConfirmed && batchQueue.some((i) => i.status === BATCH_STATUS.QUEUED) && (
+                      <span style={{ fontSize: '0.8rem', color: 'var(--warning, #f59e0b)', marginLeft: '0.75rem', fontWeight: 'normal' }}>
+                        ⚠ Review metadata for all files before uploading
+                      </span>
+                    )}
                   </span>
                   {!batchRunning && (
                     <button
                       className="batch-start-btn"
                       onClick={runBatchUpload}
-                      disabled={batchQueue.every((i) => i.status !== BATCH_STATUS.QUEUED)}
+                      disabled={!allMetadataConfirmed || batchQueue.every((i) => i.status !== BATCH_STATUS.QUEUED)}
+                      title={!allMetadataConfirmed ? "Please confirm metadata for all files first" : "Upload all queued files"}
                     >
                       <UploadCloud size={15} />
                       Upload All
@@ -624,7 +675,19 @@ const UploadAsset = () => {
                     </div>
 
                     <div className="batch-item-body">
-                      <div className="batch-item-name">{item.file.name}</div>
+                      <div className="batch-item-name">
+                        {item.file.name}
+                        {item.status === BATCH_STATUS.QUEUED && item.metadataConfirmed && (
+                          <span style={{ marginLeft: '0.5rem', color: 'var(--success, #22c55e)', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                            <CheckCircle size={12} /> Metadata confirmed
+                          </span>
+                        )}
+                        {item.status === BATCH_STATUS.QUEUED && !item.metadataConfirmed && (
+                          <span style={{ marginLeft: '0.5rem', color: 'var(--warning, #f59e0b)', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                            <AlertCircle size={12} /> Needs review
+                          </span>
+                        )}
+                      </div>
                       <div className="batch-item-meta">
                         {(item.file.size / 1024 / 1024).toFixed(2)} MB
                         {item.status === BATCH_STATUS.ANALYZING && (
@@ -656,9 +719,12 @@ const UploadAsset = () => {
                         <button
                           className="btn-sm"
                           onClick={() => setEditingBatchItem(item)}
-                          style={{ background: 'var(--surface-hover)', border: '1px solid var(--border)', color: 'var(--text)' }}
+                          style={item.metadataConfirmed
+                            ? { background: 'var(--surface-hover)', border: '1px solid var(--border)', color: 'var(--text)' }
+                            : { background: 'var(--primary, #6366f1)', border: '1px solid var(--primary, #6366f1)', color: '#fff', fontWeight: '600' }
+                          }
                         >
-                          Edit
+                          {item.metadataConfirmed ? "Re-edit" : "Review Metadata"}
                         </button>
                         <button
                           className="batch-remove-btn"
@@ -1116,10 +1182,11 @@ const UploadAsset = () => {
       {/* =================== BATCH EDIT MODAL =================== */}
       {editingBatchItem && (
         <BatchEditModal 
-          item={editingBatchItem} 
+          item={editingBatchItem}
+          aiSuggestedFields={editingBatchItem.aiSuggestedFields || []}
           onClose={() => setEditingBatchItem(null)} 
           onSave={(id, updatedMeta) => {
-            updateBatchItem(id, { metadata: updatedMeta });
+            updateBatchItem(id, { metadata: updatedMeta, metadataConfirmed: true });
             setEditingBatchItem(null);
           }} 
         />

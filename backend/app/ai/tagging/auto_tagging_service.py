@@ -241,7 +241,7 @@ class AutoTaggingService:
             return {
                 "asset_name": filename,
                 "asset_type": detected_type,
-                "description": "",
+                "description": f"Digital asset: {filename}",
                 "created_by": "Admin",
                 "owner": "Marketing Team",
                 "usage_rights": "Internal Only",
