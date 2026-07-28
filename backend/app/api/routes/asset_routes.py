@@ -1334,7 +1334,7 @@ def get_asset(
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Failed to verify asset domain scope"
-            )
+            ) 
 
     # return asset
 
