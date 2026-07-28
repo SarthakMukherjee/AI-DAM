@@ -45,8 +45,13 @@ from app.schemas.asset_schema import (
     DuplicateResolveResponse,
     AssetPlacementCreate,
     AssetPlacementResponse,
-    AssetBulkEditRequest
+    AssetPlacementResponse,
+    AssetBulkEditRequest,
+    AssetBulkActionRequest,
+    AssetCommentCreate,
+    AssetCommentResponse
 )
+from app.models.asset.asset_comment_model import AssetComment
 from app.models.asset.asset_placement_model import AssetPlacement
 from app.services.storage.duplicate_merge_service import (
     DuplicateMergeService
@@ -1153,6 +1158,81 @@ def bulk_edit_assets(
         
     db.commit()
     return {"message": f"Successfully updated {updated_count} assets."}
+
+# -----------------------------------
+# BULK RETIRE (Archive)
+# -----------------------------------
+@router.patch("/bulk-retire")
+def bulk_retire_assets(
+    payload: AssetBulkActionRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    assets = db.query(Asset).filter(Asset.id.in_(payload.asset_ids)).all()
+    if not assets:
+        raise HTTPException(status_code=404, detail="No assets found for given IDs")
+
+    updated_count = 0
+    for asset in assets:
+        if asset.status == "retired":
+            continue
+
+        old_status = asset.status
+        asset.status = "retired"
+        asset.is_latest = False
+        
+        log_audit_event(
+            db=db,
+            user_id=current_user.id,
+            action="RETIRE",
+            asset_id=asset.id,
+            field_name="status",
+            old_value=old_status,
+            new_value="retired",
+            ip_address=request.client.host if request.client else None
+        )
+        updated_count += 1
+        
+    db.commit()
+    return {"message": f"Successfully retired {updated_count} assets."}
+
+# -----------------------------------
+# ASSET COMMENTS
+# -----------------------------------
+@router.post("/{asset_id}/comments", response_model=AssetCommentResponse)
+def create_asset_comment(
+    asset_id: str,
+    payload: AssetCommentCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    asset = db.query(Asset).filter(Asset.id == asset_id).first()
+    if not asset:
+        raise HTTPException(status_code=404, detail="Asset not found")
+        
+    comment = AssetComment(
+        asset_id=asset_id,
+        user_id=current_user.id,
+        content=payload.content
+    )
+    db.add(comment)
+    db.commit()
+    db.refresh(comment)
+    return comment
+
+@router.get("/{asset_id}/comments")
+def get_asset_comments(
+    asset_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    asset = db.query(Asset).filter(Asset.id == asset_id).first()
+    if not asset:
+        raise HTTPException(status_code=404, detail="Asset not found")
+        
+    comments = db.query(AssetComment).filter(AssetComment.asset_id == asset_id).order_by(AssetComment.created_at.asc()).all()
+    return comments
 
 # -----------------------------------
 # GET SINGLE ASSET

@@ -46,3 +46,7 @@ class TagResponse(TagBase):
 
     class Config:
         from_attributes = True
+
+class TagMergeRequest(BaseModel):
+    source_tag_id: str
+    target_tag_id: str

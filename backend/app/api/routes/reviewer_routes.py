@@ -11,6 +11,7 @@ from app.models.user.user_model import User
 from app.models.asset.asset_model import Asset
 from app.models.user.notification_model import Notification
 from app.schemas.user.schemas import ReviewRequest, PublishRequest, RestrictRequest, ApproveRequest
+from app.schemas.asset_schema import AssetBulkApproveRequest
 from app.utils.audit_logger import log_audit_event
 
 router = APIRouter(prefix="/reviewer", tags=["Reviewer"])
@@ -41,6 +42,62 @@ def review_queue(db: Session = Depends(get_db), current_user: User = Depends(req
         domain_filter = Asset.asset_metadata["business"]["domain"].as_string().in_(current_user.allowed_domains)
         query = query.filter(domain_filter)
     return query.order_by(Asset.created_at.asc()).all()
+
+@router.post("/assets/bulk-approve")
+def bulk_approve_assets(
+    payload: AssetBulkApproveRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_reviewer)
+):
+    assets = db.query(Asset).filter(Asset.id.in_(payload.asset_ids)).all()
+    if not assets:
+        raise HTTPException(status_code=404, detail="No assets found for given IDs")
+
+    updated_count = 0
+    for asset in assets:
+        if asset.status not in ["draft", "pending_review"]:
+            continue
+            
+        check_reviewer_scope(asset, current_user)
+        
+        old_status = asset.status
+        asset.status = "approved"
+        
+        if payload.website_safe is not None:
+            asset.website_safe = payload.website_safe
+        if payload.public_use_approved is not None:
+            asset.public_use_approved = payload.public_use_approved
+        if payload.brand_aligned is not None:
+            asset.brand_aligned = payload.brand_aligned
+            
+        log_audit_event(
+            db=db,
+            user_id=current_user.id,
+            action="APPROVE",
+            asset_id=asset.id,
+            field_name="status",
+            old_value=old_status,
+            new_value="approved",
+            ip_address=request.client.host if request.client else None
+        )
+        
+        # notify uploader if we know them
+        if asset.updated_by and "@" in asset.updated_by:
+            uploader = db.query(User).filter(User.email == asset.updated_by).first()
+            if uploader:
+                n = Notification(
+                    user_id=uploader.id,
+                    type="asset_approved",
+                    title="Asset Approved",
+                    message=f"Your asset '{asset.original_filename}' has been approved.",
+                    reference_id=asset.id
+                )
+                db.add(n)
+        updated_count += 1
+        
+    db.commit()
+    return {"message": f"Successfully approved {updated_count} assets."}
 
 @router.post("/assets/{asset_id}/approve")
 def approve_asset(asset_id: str, request: Request, body: ApproveRequest = None, db: Session = Depends(get_db), current_user: User = Depends(require_reviewer)):

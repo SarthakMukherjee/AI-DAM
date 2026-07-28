@@ -23,6 +23,7 @@ from app.services.storage.storage_initializer import initialize_storage
 # -----------------------------------
 from app.models.asset.asset_placement_model import AssetPlacement
 from app.models.asset.asset_rendition_model import AssetRendition
+from app.models.asset.asset_comment_model import AssetComment
 from app.models.audit.audit_log_model import AuditLog
 from app.models.analytics.search_log_model import SearchLog
 from app.models.taxonomy.taxonomy_model import Category, Tag

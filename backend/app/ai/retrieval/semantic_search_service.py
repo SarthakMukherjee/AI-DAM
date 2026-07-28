@@ -1,6 +1,10 @@
 from sqlalchemy.orm import Session
+from sqlalchemy import func
+import math
+from datetime import datetime, timezone
 
 from app.models.asset.asset_model import Asset
+from app.models.analytics.asset_usage_model import AssetUsage
 
 from app.ai.embeddings.embedding_utils import (
     embed_asset,
@@ -81,6 +85,18 @@ def _format_results(
 
     asset_map = _fetch_assets_by_ids(ids, db)
 
+    # Pre-fetch usage counts for all candidates
+    usage_data = db.query(
+        AssetUsage.asset_id,
+        func.sum(AssetUsage.usage_count).label("total_usage")
+    ).filter(
+        AssetUsage.asset_id.in_(list(asset_map.keys()))
+    ).group_by(
+        AssetUsage.asset_id
+    ).all()
+    
+    usage_map = {str(row.asset_id): row.total_usage for row in usage_data}
+
     formatted_results = []
 
     for asset_id, distance in zip(ids, distances):
@@ -125,9 +141,33 @@ def _format_results(
             if filters.get("status") and asset.status != filters["status"]:
                 continue
 
-        score = _distance_to_score(distance)
-        if score < MINIMUM_SIMILARITY_SCORE:
+        semantic_score = _distance_to_score(distance)
+        if semantic_score < MINIMUM_SIMILARITY_SCORE:
             continue
+
+        # Calculate other ranking metrics
+        completeness_score = (asset.completeness_score or 0) / 100.0
+        
+        now = datetime.now(timezone.utc)
+        asset_created = asset.created_at
+        days_old = (now - asset_created).days if asset_created else 0
+        recency_score = max(0.0, 1.0 - (days_old / 365.0))
+        
+        usage = usage_map.get(str(asset.id), 0)
+        usage_score = min(1.0, math.log(usage + 1) / math.log(100)) if usage > 0 else 0.0
+        
+        status_score = 1.0 if asset.status in ("approved", "published") else 0.5
+        latest_score = 1.0 if asset.is_latest else 0.0
+        
+        # Calculate composite score
+        composite_score = (
+            (semantic_score * 0.50) +
+            (completeness_score * 0.20) +
+            (recency_score * 0.10) +
+            (usage_score * 0.10) +
+            (status_score * 0.05) +
+            (latest_score * 0.05)
+        )
 
         # Build match_explanation
         match_explanation = None
@@ -144,11 +184,19 @@ def _format_results(
                 reasons.append("matched description")
             if ai.get("image_caption") and q_lower in (ai["image_caption"] or "").lower():
                 reasons.append("matched AI caption")
-            match_explanation = " · ".join(reasons) if reasons else f"semantic similarity {round(score*100)}%"
+            match_explanation = " · ".join(reasons) if reasons else f"semantic similarity {round(semantic_score*100)}%"
 
         formatted_results.append({
             "asset_id":           str(asset.id),
-            "score":              score,
+            "score":              round(composite_score, 4),
+            "ranking_breakdown": {
+                "semantic_score": round(semantic_score, 4),
+                "completeness_score": round(completeness_score, 4),
+                "recency_score": round(recency_score, 4),
+                "usage_score": round(usage_score, 4),
+                "status_score": round(status_score, 4),
+                "latest_score": round(latest_score, 4)
+            },
             "original_filename":  asset.original_filename,
             "storage_path":       asset.storage_path,
             "thumbnail_path":     asset.thumbnail_path,
@@ -259,7 +307,7 @@ class SemanticSearchService:
 
         raw = VectorQueryService.semantic_search(
             query_embedding=query_embedding,
-            limit=limit,
+            limit=limit * 5,
             where=where,
         )
 

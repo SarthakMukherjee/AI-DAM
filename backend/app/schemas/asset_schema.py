@@ -157,4 +157,26 @@ class AssetBulkEditRequest(BaseModel):
     geographic_restrictions: Optional[list[str]] = None
     platform_restrictions: Optional[list[str]] = None
     source_ownership: Optional[str] = None
-    model_release_status: Optional[str] = None
+    model_release_status: Optional[str] = None
+
+class AssetBulkActionRequest(BaseModel):
+    asset_ids: list[str]
+
+class AssetBulkApproveRequest(BaseModel):
+    asset_ids: list[str]
+    website_safe: Optional[bool] = None
+    public_use_approved: Optional[bool] = None
+    brand_aligned: Optional[bool] = None
+
+class AssetCommentCreate(BaseModel):
+    content: str
+
+class AssetCommentResponse(BaseModel):
+    id: str
+    asset_id: str
+    user_id: str
+    content: str
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
