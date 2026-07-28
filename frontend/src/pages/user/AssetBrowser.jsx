@@ -149,6 +149,7 @@ const AssetBrowser = () => {
       }));
 
       setSearchResults({
+        search_id: res.data.search_id,
         query: res.data.query,
         total: res.data.total,
         assets: mapped,
@@ -157,6 +158,7 @@ const AssetBrowser = () => {
     } catch (err) {
       console.error(err);
       setSearchResults({
+        search_id: null,
         query: activeQuery,
         total: 0,
         assets: [],
@@ -165,6 +167,17 @@ const AssetBrowser = () => {
     } finally {
       setSearchLoading(false);
     }
+  };
+
+  // ASSET CLICK & TELEMETRY
+  const handleAssetClick = (asset) => {
+    if (searchResults?.search_id) {
+      // Fire and forget telemetry click
+      api.post(`/api/assets/search/${searchResults.search_id}/click`, {
+        asset_id: asset.id
+      }).catch(err => console.error("Telemetry failed:", err));
+    }
+    setSelectedAsset(asset);
   };
 
   // CLEAR SEARCH
@@ -515,7 +528,7 @@ const AssetBrowser = () => {
                 <AssetCard
                   key={asset.id}
                   asset={asset}
-                  onClick={() => setSelectedAsset(asset)}
+                  onClick={() => handleAssetClick(asset)}
                   score={asset.score}
                   semanticScore={asset.semantic_score}
                   keywordScore={asset.keyword_score}

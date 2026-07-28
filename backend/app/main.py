@@ -28,6 +28,7 @@ from app.models.audit.audit_log_model import AuditLog
 from app.models.analytics.search_log_model import SearchLog
 from app.models.taxonomy.taxonomy_model import Category, Tag
 from app.models.asset.shared_link_model import SharedLink
+from app.models.analytics.analytics_event_model import AnalyticsEvent
 
 Base.metadata.create_all(bind=engine)
 

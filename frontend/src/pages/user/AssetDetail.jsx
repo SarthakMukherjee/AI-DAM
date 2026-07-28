@@ -163,6 +163,14 @@ const AssetDetail = () => {
     } catch { alert("Failed to add placement"); }
   };
 
+  const [localProvenance, setLocalProvenance] = useState({});
+
+  useEffect(() => {
+    if (asset?.asset_metadata?.ai_enrichment?.provenance) {
+      setLocalProvenance(asset.asset_metadata.ai_enrichment.provenance);
+    }
+  }, [asset]);
+
   const copyId = async () => {
     await navigator.clipboard.writeText(assetId);
     setCopied(true);
@@ -176,6 +184,41 @@ const AssetDetail = () => {
   );
 
   if (!asset) return null;
+
+  const handleConfirmAI = async () => {
+    try {
+      const unconfirmed = Object.keys(localProvenance).filter(
+        (key) => localProvenance[key]?.source === "ai" && !localProvenance[key]?.is_human_confirmed
+      );
+      if (unconfirmed.length === 0) {
+        alert("All AI tags are already confirmed!");
+        return;
+      }
+      const res = await api.put(`/assets/${asset.id}/metadata/confirm-ai`, {
+        fields: unconfirmed
+      });
+      // Update local state to reflect confirmation
+      const newProv = { ...localProvenance };
+      res.data.confirmed_fields.forEach(field => {
+        if (newProv[field]) newProv[field].is_human_confirmed = true;
+      });
+      setLocalProvenance(newProv);
+      alert("AI Metadata successfully confirmed!");
+    } catch (err) {
+      console.error(err);
+      alert(err?.response?.data?.detail || "Failed to confirm AI metadata.");
+    }
+  };
+
+  const renderProvenanceBadge = (fieldKey) => {
+    const prov = localProvenance[fieldKey];
+    if (!prov || prov.source !== "ai") return null;
+    return prov.is_human_confirmed ? (
+      <CheckCircle2 size={14} className="provenance-confirmed" title="Human Confirmed" />
+    ) : (
+      <Brain size={14} className="provenance-ai" title="AI Generated" />
+    );
+  };
 
   const assetName = asset.asset_metadata?.mandatory?.asset_name || asset.original_filename;
   const mandatory = asset.asset_metadata?.mandatory || {};
@@ -320,6 +363,21 @@ const AssetDetail = () => {
                     <span className="badge badge-accent" style={{ marginLeft: "auto", fontSize: "0.65rem" }}>AI Tagged</span>
                   )}
                 </div>
+                
+                {Object.keys(localProvenance).some(k => localProvenance[k]?.source === "ai" && !localProvenance[k]?.is_human_confirmed) && (
+                  <div style={{ padding: "0 1.2rem", marginTop: "-0.5rem", marginBottom: "0.5rem" }}>
+                    <button
+                      className="modal-btn modal-btn-secondary"
+                      onClick={handleConfirmAI}
+                      style={{ width: "100%", padding: "0.4rem" }}
+                      title="Confirm all AI generated metadata"
+                    >
+                      <CheckCircle2 size={16} />
+                      Confirm AI Metadata
+                    </button>
+                  </div>
+                )}
+
                 {ai.image_caption && (
                   <div className="ai-caption">
                     <span className="detail-label">Caption</span>
@@ -328,7 +386,7 @@ const AssetDetail = () => {
                 )}
                 {tags.length > 0 && (
                   <div className="ai-tags-section">
-                    <span className="detail-label">AI Tags</span>
+                    <span className="detail-label">AI Tags {renderProvenanceBadge("ai_tags")}</span>
                     <div className="detail-tags">
                       {tags.map((t) => <span key={t} className="asset-tag">{t}</span>)}
                     </div>
@@ -404,7 +462,7 @@ const AssetDetail = () => {
             <div className="asset-detail-card">
               <div className="card-header"><FileIcon size={15} /><span>Core Metadata</span></div>
               <div className="detail-grid">
-                <DetailRow label="Asset Type" value={mandatory.asset_type} />
+                <DetailRow label="Asset Type" value={mandatory.asset_type} badge={renderProvenanceBadge("asset_type")} />
                 <DetailRow label="Owner" value={mandatory.owner} />
                 <DetailRow label="Created By" value={mandatory.created_by} />
                 <DetailRow label="Usage Rights" value={mandatory.usage_rights} />
@@ -418,8 +476,8 @@ const AssetDetail = () => {
             <div className="asset-detail-card">
               <div className="card-header"><Globe size={15} /><span>Business Context</span></div>
               <div className="detail-grid">
-                <DetailRow label="Domain" value={business.domain} />
-                <DetailRow label="Audience" value={business.audience} />
+                <DetailRow label="Domain" value={business.domain} badge={renderProvenanceBadge("domain")} />
+                <DetailRow label="Audience" value={business.audience} badge={renderProvenanceBadge("audience")} />
                 <DetailRow label="Use Case" value={business.use_case} />
                 <DetailRow label="Funnel Stage" value={business.funnel_stage} />
                 <DetailRow label="Expiry Date" value={business.expiry_date} />
@@ -430,7 +488,7 @@ const AssetDetail = () => {
             {(content.tone || keywords.length > 0) && (
               <div className="asset-detail-card">
                 <div className="card-header"><Tag size={15} /><span>Content Details</span></div>
-                <DetailRow label="Tone" value={content.tone} />
+                <DetailRow label="Tone" value={content.tone} badge={renderProvenanceBadge("tone")} />
                 {keywords.length > 0 && (
                   <div style={{ marginTop: "0.75rem" }}>
                     <span className="detail-label">Keywords</span>
@@ -629,12 +687,14 @@ const AssetDetail = () => {
   );
 };
 
-const DetailRow = ({ label, value, mono }) => {
+const DetailRow = ({ label, value, mono, badge }) => {
   if (!value) return null;
   return (
     <div className="detail-row">
       <span className="detail-label">{label}</span>
-      <span className={`detail-value ${mono ? "detail-mono" : ""}`}>{value}</span>
+      <span className={`detail-value ${mono ? "detail-mono" : ""}`}>
+        {value} {badge}
+      </span>
     </div>
   );
 };

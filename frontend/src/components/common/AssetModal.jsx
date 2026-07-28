@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import {
@@ -13,6 +13,8 @@ import {
   GitBranch,
   Eye,
   Archive,
+  CheckCircle2,
+  Wand2
 } from "lucide-react";
 
 import api, { API_BASE } from "../../api/axios";
@@ -28,6 +30,10 @@ const TYPE_ICON = {
 
 const AssetModal = ({ asset, onClose, onDelete, onArchive, showDelete }) => {
   const navigate = useNavigate();
+  const [localProvenance, setLocalProvenance] = useState(
+    asset.asset_metadata?.ai_enrichment?.provenance || {}
+  );
+
   const assetName =
     asset.asset_metadata?.mandatory?.asset_name || asset.original_filename;
 
@@ -132,6 +138,41 @@ const AssetModal = ({ asset, onClose, onDelete, onArchive, showDelete }) => {
     }
   };
 
+  const handleConfirmAI = async () => {
+    try {
+      const unconfirmed = Object.keys(localProvenance).filter(
+        (key) => localProvenance[key]?.source === "ai" && !localProvenance[key]?.is_human_confirmed
+      );
+      if (unconfirmed.length === 0) {
+        alert("All AI tags are already confirmed!");
+        return;
+      }
+      const res = await api.put(`/assets/${asset.id}/metadata/confirm-ai`, {
+        fields: unconfirmed
+      });
+      // Update local state to reflect confirmation
+      const newProv = { ...localProvenance };
+      res.data.confirmed_fields.forEach(field => {
+        if (newProv[field]) newProv[field].is_human_confirmed = true;
+      });
+      setLocalProvenance(newProv);
+      alert("AI Metadata successfully confirmed!");
+    } catch (err) {
+      console.error(err);
+      alert(err?.response?.data?.detail || "Failed to confirm AI metadata.");
+    }
+  };
+
+  const renderProvenanceBadge = (fieldKey) => {
+    const prov = localProvenance[fieldKey];
+    if (!prov || prov.source !== "ai") return null;
+    return prov.is_human_confirmed ? (
+      <CheckCircle2 size={14} className="provenance-confirmed" title="Human Confirmed" />
+    ) : (
+      <Wand2 size={14} className="provenance-ai" title="AI Generated" />
+    );
+  };
+
   const statusBadge =
     asset.status === "approved"
       ? "badge-success"
@@ -230,7 +271,7 @@ const AssetModal = ({ asset, onClose, onDelete, onArchive, showDelete }) => {
             <div className="modal-detail-group">
               <span className="modal-detail-label">Type</span>
               <span className="modal-detail-value">
-                {mandatory.asset_type || asset.mime_type}
+                {mandatory.asset_type || asset.mime_type} {renderProvenanceBadge("asset_type")}
               </span>
             </div>
 
@@ -251,20 +292,29 @@ const AssetModal = ({ asset, onClose, onDelete, onArchive, showDelete }) => {
             <div className="modal-detail-group">
               <span className="modal-detail-label">Domain</span>
               <span className="modal-detail-value">
-                {business.domain || "—"}
+                {business.domain || "—"} {renderProvenanceBadge("domain")}
               </span>
             </div>
 
             <div className="modal-detail-group">
               <span className="modal-detail-label">Audience</span>
               <span className="modal-detail-value">
-                {business.audience || "—"}
+                {business.audience || "—"} {renderProvenanceBadge("audience")}
               </span>
             </div>
 
             <div className="modal-detail-group">
               <span className="modal-detail-label">Tone</span>
-              <span className="modal-detail-value">{content.tone || "—"}</span>
+              <span className="modal-detail-value">
+                {content.tone || "—"} {renderProvenanceBadge("tone")}
+              </span>
+            </div>
+
+            <div className="modal-detail-group">
+              <span className="modal-detail-label">Language</span>
+              <span className="modal-detail-value">
+                {business.language || "—"} {renderProvenanceBadge("language")}
+              </span>
             </div>
 
             <div className="modal-detail-group">
@@ -320,7 +370,7 @@ const AssetModal = ({ asset, onClose, onDelete, onArchive, showDelete }) => {
 
             {tags.length > 0 && (
               <div className="modal-detail-group">
-                <span className="modal-detail-label">AI Tags</span>
+                <span className="modal-detail-label">AI Tags {renderProvenanceBadge("ai_tags")}</span>
 
                 <div className="modal-tags">
                   {tags.map((tag) => (
@@ -333,6 +383,16 @@ const AssetModal = ({ asset, onClose, onDelete, onArchive, showDelete }) => {
             )}
 
             <div className="modal-actions">
+              {Object.keys(localProvenance).some(k => localProvenance[k]?.source === "ai" && !localProvenance[k]?.is_human_confirmed) && (
+                <button
+                  className="modal-btn modal-btn-secondary"
+                  onClick={handleConfirmAI}
+                  title="Confirm all AI generated metadata"
+                >
+                  <CheckCircle2 size={16} />
+                  Confirm AI
+                </button>
+              )}
               <button
                 className="modal-btn modal-btn-primary"
                 onClick={handleDownload}

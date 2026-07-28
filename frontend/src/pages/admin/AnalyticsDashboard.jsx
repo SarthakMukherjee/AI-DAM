@@ -12,6 +12,7 @@ const AnalyticsDashboard = () => {
   const [approvalTimes, setApprovalTimes] = useState(null);
   const [searchGaps, setSearchGaps] = useState([]);
   const [unusedAssets, setUnusedAssets] = useState([]);
+  const [telemetry, setTelemetry] = useState(null);
   
   const [loading, setLoading] = useState(false);
   
@@ -67,11 +68,25 @@ const AnalyticsDashboard = () => {
     }
   };
 
+  // Fetch telemetry
+  const fetchTelemetry = async () => {
+    setLoading(true);
+    try {
+      const res = await api.get("/admin/analytics/telemetry");
+      setTelemetry(res.data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (activeTab === "missing_meta") fetchMissingMeta();
     if (activeTab === "approval_times") fetchApprovalTimes();
     if (activeTab === "search_gaps") fetchSearchGaps();
     if (activeTab === "unused") fetchUnusedAssets();
+    if (activeTab === "telemetry") fetchTelemetry();
   }, [activeTab]);
 
   const handleExport = (reportType) => {
@@ -85,6 +100,7 @@ const AnalyticsDashboard = () => {
         <button className={`analytics-tab ${activeTab === 'approval_times' ? 'active' : ''}`} onClick={() => setActiveTab('approval_times')}>Time-to-Approval</button>
         <button className={`analytics-tab ${activeTab === 'search_gaps' ? 'active' : ''}`} onClick={() => setActiveTab('search_gaps')}>Search Gaps</button>
         <button className={`analytics-tab ${activeTab === 'unused' ? 'active' : ''}`} onClick={() => setActiveTab('unused')}>Unused Assets</button>
+        <button className={`analytics-tab ${activeTab === 'telemetry' ? 'active' : ''}`} onClick={() => setActiveTab('telemetry')}>POC Telemetry</button>
       </div>
 
       <div className="analytics-content">
@@ -92,6 +108,28 @@ const AnalyticsDashboard = () => {
            <div className="flex-center" style={{ padding: "4rem" }}><div className="loader" /></div>
         ) : (
           <>
+            {activeTab === "telemetry" && telemetry && (
+              <div className="analytics-section">
+                <div className="analytics-header">
+                  <h3>POC Success Metrics</h3>
+                </div>
+                <div className="stats-grid">
+                  <div className="stat-card">
+                    <span className="stat-value">{telemetry.search_success_rate_percent.toFixed(1)}%</span>
+                    <span className="stat-label">Search Success Rate</span>
+                  </div>
+                  <div className="stat-card">
+                    <span className="stat-value">{(telemetry.avg_time_to_find_ms / 1000).toFixed(1)}s</span>
+                    <span className="stat-label">Avg Time to Find</span>
+                  </div>
+                  <div className="stat-card">
+                    <span className="stat-value">{telemetry.ai_tags_accepted}</span>
+                    <span className="stat-label">AI Tags Human Confirmed</span>
+                  </div>
+                </div>
+              </div>
+            )}
+            
             {activeTab === "missing_meta" && (
               <div className="analytics-section">
                 <div className="analytics-header">
