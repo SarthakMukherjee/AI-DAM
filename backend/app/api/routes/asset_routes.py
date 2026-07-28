@@ -6,8 +6,11 @@ from fastapi import (
     HTTPException,
     Form,
     Request,
-    status
+    status,
+    Body, 
+    
 )
+from typing import List
 
 import os
 import json
@@ -1233,6 +1236,58 @@ def get_asset_comments(
         
     comments = db.query(AssetComment).filter(AssetComment.asset_id == asset_id).order_by(AssetComment.created_at.asc()).all()
     return comments
+
+# -----------------------------------
+# AI TRANSPARENCY: CONFIRM AI TAGS
+# -----------------------------------
+
+@router.put("/{asset_id}/metadata/confirm-ai")
+def confirm_ai_metadata(
+    asset_id: str,
+    fields: List[str] = Body(..., embed=True),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    """
+    Confirms AI-generated metadata fields as accurate by a human.
+    """
+    asset = db.query(Asset).filter(Asset.id == asset_id).first()
+    if not asset:
+        raise HTTPException(status_code=404, detail="Asset not found")
+
+    meta = asset.asset_metadata
+    if not meta or "ai_enrichment" not in meta:
+        raise HTTPException(status_code=400, detail="No AI metadata to confirm")
+
+    ai_meta = meta["ai_enrichment"]
+    provenance = ai_meta.get("provenance", {})
+
+    confirmed_fields = []
+    for field in fields:
+        if field in provenance:
+            provenance[field]["is_human_confirmed"] = True
+            provenance[field]["confirmed_by"] = current_user.id
+            confirmed_fields.append(field)
+
+    if confirmed_fields:
+        ai_meta["provenance"] = provenance
+        meta["ai_enrichment"] = ai_meta
+        
+        # SQLAlchemy needs to know JSONB changed
+        asset.asset_metadata = dict(meta)
+        
+        # Log analytics event
+        event = AnalyticsEvent(
+            event_type="AI_TAG_ACCEPTED",
+            user_id=current_user.id,
+            asset_id=asset_id,
+            payload={"fields": confirmed_fields}
+        )
+        db.add(event)
+        
+        db.commit()
+
+    return {"message": "AI tags confirmed", "confirmed_fields": confirmed_fields}
 
 # -----------------------------------
 # GET SINGLE ASSET

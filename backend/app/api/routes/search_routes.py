@@ -68,6 +68,7 @@ async def semantic_search(
     results = [SemanticSearchResult(**r) for r in raw_results]
     
     # Log the search
+    search_id = None
     try:
         search_log = SearchLog(
             query=body.query,
@@ -77,11 +78,13 @@ async def semantic_search(
         )
         db.add(search_log)
         db.commit()
+        search_id = search_log.id
     except Exception as e:
         print(f"Failed to log semantic search: {e}")
         db.rollback()
 
     return SemanticSearchResponse(
+        search_id=search_id,
         query=body.query,
         total=len(results),
         results=results,
@@ -129,6 +132,7 @@ async def hybrid_search(
     results = [HybridSearchResult(**r) for r in raw_results]
     
     # Log the search
+    search_id = None
     try:
         search_log = SearchLog(
             query=body.query,
@@ -138,11 +142,13 @@ async def hybrid_search(
         )
         db.add(search_log)
         db.commit()
+        search_id = search_log.id
     except Exception as e:
         print(f"Failed to log hybrid search: {e}")
         db.rollback()
 
     return HybridSearchResponse(
+        search_id=search_id,
         query=body.query,
         total=len(results),
         results=results,
@@ -184,4 +190,44 @@ async def reindex_asset(
         "message": f"Asset {asset_id} reindexed successfully",
         "asset_id": asset_id,
         "status":   asset.status,
-    }
+    }
+
+
+# ---------------------------------------------------------------------------
+# POST /api/assets/search/{search_id}/click — track telemetry
+# ---------------------------------------------------------------------------
+
+from pydantic import BaseModel
+from datetime import datetime, timezone
+
+class SearchClickRequest(BaseModel):
+    asset_id: str
+
+@router.post("/{search_id}/click", summary="Track Search Click")
+def track_search_click(
+    search_id: str,
+    body: SearchClickRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Log when a user clicks on an asset from search results.
+    Used for telemetry (Time-to-find, Search Success Rate).
+    """
+    search_log = db.query(SearchLog).filter(SearchLog.id == search_id).first()
+    if not search_log:
+        raise HTTPException(status_code=404, detail="Search log not found")
+
+    if search_log.successful_click_asset_id:
+        return {"message": "Click already recorded"}
+
+    search_log.successful_click_asset_id = body.asset_id
+    
+    # Calculate time to find in ms
+    now = datetime.now(timezone.utc)
+    if search_log.timestamp:
+        time_diff = now - search_log.timestamp.replace(tzinfo=timezone.utc)
+        search_log.time_to_click_ms = int(time_diff.total_seconds() * 1000)
+
+    db.commit()
+    return {"message": "Click tracked successfully", "time_to_click_ms": search_log.time_to_click_ms}

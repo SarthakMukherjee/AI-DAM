@@ -12,6 +12,15 @@ from app.schemas.metadata.metadata_enums import (
     UsageRightsType,
 )
 
+# PROVENANCE TRACKING (AI Transparency)
+class MetadataProvenance(BaseModel):
+    source: str = Field(..., description="'ai' or 'human'")
+    confidence: Optional[float] = Field(None, ge=0, le=100)
+    is_human_confirmed: bool = False
+    confirmed_by: Optional[str] = None
+    confirmed_at: Optional[str] = None
+
+
 # MANDATORY METADATA
 
 class MandatoryMetadata(BaseModel):
@@ -54,6 +63,8 @@ class AIEnrichmentMetadata(BaseModel):
     enrichment_status: Optional[str] = ""
     # Clean LLM-generated summary stored separately for search & display
     ai_summary: Optional[str] = None
+    # Transparency: Maps field names to their provenance (e.g., {"ai_tags": MetadataProvenance})
+    provenance: Optional[dict[str, MetadataProvenance]] = {}
 
 
 # FINAL ASSET METADATA

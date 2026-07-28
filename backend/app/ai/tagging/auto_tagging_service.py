@@ -195,9 +195,10 @@ class AutoTaggingService:
         CONTENT FIELDS:
         11. tone: Must be one of: "professional", "casual", "formal", "friendly", "technical", "creative".
         12. keywords: A comma-separated string of 3-6 relevant keywords derived from the content.
+        13. confidence_score: A number between 0 and 100 representing how confident you are in these AI suggestions overall.
 
         RULES:
-        - Return ONLY valid JSON with EXACTLY these 12 keys
+        - Return ONLY valid JSON with EXACTLY these 13 keys
         - No markdown, no explanations, no code blocks
         - Every field is required — never return null or empty string
         - Infer intelligently from the content; if uncertain, pick the most likely value
@@ -215,7 +216,8 @@ class AutoTaggingService:
             "audience": "...",
             "funnel_stage": "...",
             "tone": "...",
-            "keywords": "..."
+            "keywords": "...",
+            "confidence_score": 85
         }}
 
         Filename: {filename}
@@ -235,6 +237,18 @@ class AutoTaggingService:
             )
             llm_response = response.choices[0].message.content
             parsed_response = json.loads(llm_response)
+            
+            # AI Transparency: Build provenance tracking
+            confidence = parsed_response.pop("confidence_score", 85)
+            provenance = {}
+            for key in parsed_response.keys():
+                provenance[key] = {
+                    "source": "ai",
+                    "confidence": confidence,
+                    "is_human_confirmed": False
+                }
+            parsed_response["provenance"] = provenance
+            
             return parsed_response
         except Exception as e:
             print(f"AI tagging failed: {e}")
@@ -250,7 +264,10 @@ class AutoTaggingService:
                 "audience": "b2b",
                 "funnel_stage": "awareness",
                 "tone": "professional",
-                "keywords": ""
+                "keywords": "",
+                "provenance": {
+                    "asset_name": {"source": "ai", "confidence": 0, "is_human_confirmed": False}
+                }
             }
         
         # END

@@ -63,6 +63,7 @@ class SemanticSearchResult(BaseSearchResult):
 
 
 class SemanticSearchResponse(BaseModel):
+    search_id: Optional[str] = None
     query:   str
     total:   int
     results: List[SemanticSearchResult]
@@ -93,6 +94,7 @@ class HybridSearchResult(BaseSearchResult):
 
 
 class HybridSearchResponse(BaseModel):
+    search_id: Optional[str] = None
     query:   str
     total:   int
     results: List[HybridSearchResult]

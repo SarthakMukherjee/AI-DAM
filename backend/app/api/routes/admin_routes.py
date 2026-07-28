@@ -16,6 +16,7 @@ from app.models.analytics.asset_usage_model import AssetUsage
 from app.models.user.notification_model import Notification
 from app.models.audit.audit_log_model import AuditLog
 from app.models.analytics.search_log_model import SearchLog
+from app.models.analytics.analytics_event_model import AnalyticsEvent
 
 from app.schemas.user.schemas import (
     NotificationResponse,
@@ -511,6 +512,32 @@ def get_audit_logs(
         "pages": pages,
         "items": items
     }
+
+# -----------------------------------
+# GET /analytics/telemetry
+# Point 12: Sharper POC Metrics
+# -----------------------------------
+@router.get("/analytics/telemetry")
+def get_telemetry_metrics(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin_or_reviewer)
+):
+    total_searches = db.query(SearchLog).count()
+    successful_searches = db.query(SearchLog).filter(SearchLog.successful_click_asset_id != None).count()
+    search_success_rate = round(successful_searches / total_searches * 100, 2) if total_searches > 0 else 0.0
+
+    avg_time_to_find_ms = db.query(func.avg(SearchLog.time_to_click_ms)).scalar()
+    avg_time_to_find_ms = round(avg_time_to_find_ms, 2) if avg_time_to_find_ms else 0.0
+
+    total_ai_accepted = db.query(AnalyticsEvent).filter(AnalyticsEvent.event_type == "AI_TAG_ACCEPTED").count()
+    
+    return {
+        "search_success_rate_percent": search_success_rate,
+        "avg_time_to_find_ms": avg_time_to_find_ms,
+        "ai_tags_accepted": total_ai_accepted,
+        "total_searches": total_searches
+    }
+
 
 
 @router.get("/analytics/unused-assets", response_model=UnusedAssetsResponse)
