@@ -203,7 +203,7 @@ from datetime import datetime, timezone
 class SearchClickRequest(BaseModel):
     asset_id: str
 
-@router.post("/{search_id}/click", summary="Track Search Click")
+@router.post("/search/{search_id}/click", summary="Track Search Click")
 def track_search_click(
     search_id: str,
     body: SearchClickRequest,

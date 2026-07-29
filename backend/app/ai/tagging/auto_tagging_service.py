@@ -379,6 +379,9 @@ class AutoTaggingService:
             "searchable_tags": cleaned_tags,
             "enrichment_status": "completed",
             "ai_summary": ai_summary,
+            "provenance": {
+                "ai_tags": {"source": "ai", "confidence": 90, "is_human_confirmed": False}
+            }
         }
 
     # -----------------------------------
@@ -424,6 +427,9 @@ class AutoTaggingService:
             "searchable_tags": cleaned_tags,
             "enrichment_status": "completed",
             "ai_summary": ai_summary,
+            "provenance": {
+                "ai_tags": {"source": "ai", "confidence": 90, "is_human_confirmed": False}
+            }
         }
 
     # -----------------------------------
@@ -475,6 +481,9 @@ class AutoTaggingService:
             "searchable_tags": cleaned_tags,
             "enrichment_status": "completed",
             "ai_summary": ai_summary,
+            "provenance": {
+                "ai_tags": {"source": "ai", "confidence": 90, "is_human_confirmed": False}
+            }
         }
 
     # -----------------------------------
@@ -508,6 +517,9 @@ class AutoTaggingService:
             "searchable_tags": cleaned_tags,
             "enrichment_status": "completed",
             "ai_summary": ai_summary,
+            "provenance": {
+                "ai_tags": {"source": "ai", "confidence": 90, "is_human_confirmed": False}
+            }
         }
 
     # -----------------------------------
@@ -541,6 +553,9 @@ class AutoTaggingService:
             "searchable_tags": cleaned_tags,
             "enrichment_status": "completed",
             "ai_summary": ai_summary,
+            "provenance": {
+                "ai_tags": {"source": "ai", "confidence": 90, "is_human_confirmed": False}
+            }
         }
 
     # -----------------------------------
@@ -574,4 +589,7 @@ class AutoTaggingService:
             "searchable_tags": cleaned_tags,
             "enrichment_status": "completed",
             "ai_summary": ai_summary,
+            "provenance": {
+                "ai_tags": {"source": "ai", "confidence": 90, "is_human_confirmed": False}
+            }
         }

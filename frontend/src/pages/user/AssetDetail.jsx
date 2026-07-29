@@ -3,7 +3,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Download, Image, Video, FileText, Folder,
   CheckCircle2, XCircle, Clock3, Globe, Lock, AlertTriangle,
-  Tag, Brain, BarChart2, GitBranch, Copy, ExternalLink, CalendarClock, AlertCircle, Link
+  Tag, Brain, BarChart2, GitBranch, Copy, ExternalLink, CalendarClock, AlertCircle, Link,
+  Edit2, Save, X
 } from "lucide-react";
 import api, { API_BASE } from "../../api/axios";
 import Layout from "../../components/common/layout";
@@ -54,6 +55,11 @@ const AssetDetail = () => {
   const [newPlacement, setNewPlacement] = useState({ platform: "", placement_url_or_id: "" });
   const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
+
+  const [isEditingAI, setIsEditingAI] = useState(false);
+  const [editAITags, setEditAITags] = useState("");
+  const [editAICaption, setEditAICaption] = useState("");
+  const [editAIObjects, setEditAIObjects] = useState("");
 
   useEffect(() => {
     const fetchAssetAndExtras = async () => {
@@ -210,6 +216,45 @@ const AssetDetail = () => {
     }
   };
 
+  const handleStartEditAI = () => {
+    const currentAI = asset.asset_metadata?.ai_enrichment || {};
+    setEditAITags((currentAI.ai_tags || []).join(", "));
+    setEditAICaption(currentAI.image_caption || "");
+    setEditAIObjects((currentAI.detected_objects || []).join(", "));
+    setIsEditingAI(true);
+  };
+
+  const handleSaveAI = async () => {
+    try {
+      const updatedTags = editAITags.split(",").map(t => t.trim()).filter(Boolean);
+      const updatedObjects = editAIObjects.split(",").map(o => o.trim()).filter(Boolean);
+      
+      await api.put(`/assets/bulk-edit`, {
+        asset_ids: [assetId],
+        metadata_updates: {
+          ai_enrichment: {
+            ai_tags: updatedTags,
+            image_caption: editAICaption,
+            detected_objects: updatedObjects
+          }
+        }
+      });
+      
+      setAsset(prev => {
+        const next = {...prev};
+        if(!next.asset_metadata) next.asset_metadata = {};
+        if(!next.asset_metadata.ai_enrichment) next.asset_metadata.ai_enrichment = {};
+        next.asset_metadata.ai_enrichment.ai_tags = updatedTags;
+        next.asset_metadata.ai_enrichment.image_caption = editAICaption;
+        next.asset_metadata.ai_enrichment.detected_objects = updatedObjects;
+        return next;
+      });
+      setIsEditingAI(false);
+    } catch(err) {
+      alert("Failed to update AI metadata.");
+    }
+  };
+
   const renderProvenanceBadge = (fieldKey) => {
     const prov = localProvenance[fieldKey];
     if (!prov || prov.source !== "ai") return null;
@@ -354,17 +399,31 @@ const AssetDetail = () => {
             </div>
 
             {/* AI ENRICHMENT */}
-            {(tags.length > 0 || ai.image_caption || detectedObjects.length > 0) && (
+            {(tags.length > 0 || ai.image_caption || detectedObjects.length > 0 || isEditingAI) && (
               <div className="asset-detail-card">
                 <div className="card-header">
                   <Brain size={15} />
                   <span>AI Enrichment</span>
-                  {ai.enrichment_status === "completed" && (
+                  {!isEditingAI && ai.enrichment_status === "completed" && (
                     <span className="badge badge-accent" style={{ marginLeft: "auto", fontSize: "0.65rem" }}>AI Tagged</span>
+                  )}
+                  {!isEditingAI ? (
+                    <button onClick={handleStartEditAI} style={{ marginLeft: ai.enrichment_status !== "completed" ? "auto" : "5px", cursor: "pointer", background: "none", border: "none", color: "var(--text-muted)", display: "flex", alignItems: "center" }} title="Edit AI Metadata">
+                      <Edit2 size={14} />
+                    </button>
+                  ) : (
+                    <div style={{ marginLeft: "auto", display: "flex", gap: "8px" }}>
+                      <button onClick={handleSaveAI} style={{ cursor: "pointer", background: "var(--accent)", color: "#fff", border: "none", borderRadius: "4px", padding: "2px 8px", display: "flex", alignItems: "center", gap: "4px", fontSize: "0.75rem" }}>
+                        <Save size={12} /> Save
+                      </button>
+                      <button onClick={() => setIsEditingAI(false)} style={{ cursor: "pointer", background: "#e2e8f0", color: "var(--text-primary)", border: "none", borderRadius: "4px", padding: "2px 8px", display: "flex", alignItems: "center", gap: "4px", fontSize: "0.75rem" }}>
+                        <X size={12} /> Cancel
+                      </button>
+                    </div>
                   )}
                 </div>
                 
-                {Object.keys(localProvenance).some(k => localProvenance[k]?.source === "ai" && !localProvenance[k]?.is_human_confirmed) && (
+                {Object.keys(localProvenance).some(k => localProvenance[k]?.source === "ai" && !localProvenance[k]?.is_human_confirmed) && !isEditingAI && (
                   <div style={{ padding: "0 1.2rem", marginTop: "-0.5rem", marginBottom: "0.5rem" }}>
                     <button
                       className="modal-btn modal-btn-secondary"
@@ -378,27 +437,46 @@ const AssetDetail = () => {
                   </div>
                 )}
 
-                {ai.image_caption && (
-                  <div className="ai-caption">
-                    <span className="detail-label">Caption</span>
-                    <p>{ai.image_caption}</p>
-                  </div>
-                )}
-                {tags.length > 0 && (
-                  <div className="ai-tags-section">
-                    <span className="detail-label">AI Tags {renderProvenanceBadge("ai_tags")}</span>
-                    <div className="detail-tags">
-                      {tags.map((t) => <span key={t} className="asset-tag">{t}</span>)}
+                {isEditingAI ? (
+                  <div style={{ padding: "0 1.2rem", display: "flex", flexDirection: "column", gap: "10px" }}>
+                    <div>
+                      <label style={{ fontSize: "0.8rem", fontWeight: "600", color: "var(--text-muted)" }}>Caption</label>
+                      <textarea value={editAICaption} onChange={(e) => setEditAICaption(e.target.value)} style={{ width: "100%", padding: "6px", fontSize: "0.85rem", borderRadius: "4px", border: "1px solid var(--border)", minHeight: "60px" }} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: "0.8rem", fontWeight: "600", color: "var(--text-muted)" }}>AI Tags (comma separated)</label>
+                      <input type="text" value={editAITags} onChange={(e) => setEditAITags(e.target.value)} style={{ width: "100%", padding: "6px", fontSize: "0.85rem", borderRadius: "4px", border: "1px solid var(--border)" }} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: "0.8rem", fontWeight: "600", color: "var(--text-muted)" }}>Detected Objects (comma separated)</label>
+                      <input type="text" value={editAIObjects} onChange={(e) => setEditAIObjects(e.target.value)} style={{ width: "100%", padding: "6px", fontSize: "0.85rem", borderRadius: "4px", border: "1px solid var(--border)" }} />
                     </div>
                   </div>
-                )}
-                {detectedObjects.length > 0 && (
-                  <div className="ai-tags-section">
-                    <span className="detail-label">Detected Objects</span>
-                    <div className="detail-tags">
-                      {detectedObjects.map((o) => <span key={o} className="asset-tag">{o}</span>)}
-                    </div>
-                  </div>
+                ) : (
+                  <>
+                    {ai.image_caption && (
+                      <div className="ai-caption">
+                        <span className="detail-label">Caption</span>
+                        <p>{ai.image_caption}</p>
+                      </div>
+                    )}
+                    {tags.length > 0 && (
+                      <div className="ai-tags-section">
+                        <span className="detail-label">AI Tags {renderProvenanceBadge("ai_tags")}</span>
+                        <div className="detail-tags">
+                          {tags.map((t) => <span key={t} className="asset-tag">{t}</span>)}
+                        </div>
+                      </div>
+                    )}
+                    {detectedObjects.length > 0 && (
+                      <div className="ai-tags-section">
+                        <span className="detail-label">Detected Objects</span>
+                        <div className="detail-tags">
+                          {detectedObjects.map((o) => <span key={o} className="asset-tag">{o}</span>)}
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             )}

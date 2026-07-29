@@ -32,6 +32,7 @@ from app.api.dependencies.auth_dependency import (
 )
 from app.services.storage.asset_service import AssetService
 from app.models.asset.asset_model import Asset
+from app.models.analytics.analytics_event_model import AnalyticsEvent
 from app.models.analytics.asset_usage_model import AssetUsage
 from app.models.user.user_model import User
 from app.schemas.metadata.metadata_schema import AssetMetadataSchema
