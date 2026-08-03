@@ -113,6 +113,14 @@ previews/
 *.tmp
 
 # =================================================
+# Test Artifacts & Stale Files
+# =================================================
+test.png
+test_analyze.py
+test_analyze_api.py
+/package-lock.json
+
+# =================================================
 # DOCUMENTATION
 # =================================================
 .implementation_plan.md

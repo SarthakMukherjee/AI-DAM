@@ -14,6 +14,9 @@ from typing import List
 
 import os
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 from app.core.config.settings import settings
 
@@ -74,7 +77,10 @@ router = APIRouter(
     tags=["Assets"]
 )
 
-asset_service = AssetService()
+
+def get_asset_service() -> AssetService:
+    """FastAPI dependency — injectable and mockable for testing."""
+    return AssetService()
 
 
 def check_restricted_access(asset: Asset, user: User) -> None:
@@ -197,7 +203,8 @@ async def upload_asset(
     relationship_type: str = Form("master"),
 
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_admin),
+    asset_service: AssetService = Depends(get_asset_service)
 ):
     try:
         sanitized = sanitize_json_string(metadata)
@@ -237,13 +244,13 @@ async def upload_asset(
     if geographic_restrictions:
         try:
             asset.geographic_restrictions = json.loads(geographic_restrictions)
-        except:
-            pass
+        except (json.JSONDecodeError, ValueError) as e:
+            logger.warning("Invalid JSON for geographic_restrictions, skipping: %s", e)
     if platform_restrictions:
         try:
             asset.platform_restrictions = json.loads(platform_restrictions)
-        except:
-            pass
+        except (json.JSONDecodeError, ValueError) as e:
+            logger.warning("Invalid JSON for platform_restrictions, skipping: %s", e)
     if source_ownership:
         asset.source_ownership = source_ownership.strip()
     if model_release_status:
@@ -310,6 +317,8 @@ async def analyze_asset(
 
 @router.get("/")
 def list_assets(
+    page: int = 1,
+    limit: int = 50,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -341,7 +350,10 @@ def list_assets(
       ]["domain"].as_string().in_(current_user.allowed_domains)
       query = query.filter(domain_filter)
 
-    assets = query.all()
+    # Pagination
+    total = query.count()
+    offset = (max(1, page) - 1) * limit
+    assets = query.order_by(Asset.created_at.desc()).offset(offset).limit(limit).all()
 
     response = []
 
@@ -359,7 +371,13 @@ def list_assets(
             }
         )
 
-    return response
+    return {
+        "items": response,
+        "total": total,
+        "page": page,
+        "limit": limit,
+        "pages": (total + limit - 1) // limit if total > 0 else 1,
+    }
 
 
 # -----------------------------------
@@ -1310,12 +1328,11 @@ def get_asset(
     # Access control for restricted view roles
     RESTRICTED_VIEW_ROLES = ["user", "sales_user", "external_partner"]
     if current_user.role in RESTRICTED_VIEW_ROLES:
-        if asset.status != "approved" and asset.status != "restricted": # Allow restricted assets to be checked by check_restricted_access
-            if asset.status != "approved" or asset.is_archived:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="You do not have permission to view this asset"
-                )
+        if asset.status not in ("approved", "restricted") or asset.is_archived:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to view this asset"
+            )
 
     # Enforce Phase 4.1 restricted access control
     check_restricted_access(asset, current_user)

@@ -1,13 +1,17 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from slowapi import Limiter
 from slowapi.util import get_remote_address
+
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.database import get_db
 from app.api.dependencies.auth_dependency import get_current_user
 from app.core.security.hashing import hash_password, verify_password
-from app.core.security.auth import create_access_token
+from app.core.security.auth import create_access_token, decode_access_token
+from app.core.security.token_blacklist import blacklist_token, cleanup_expired
 from app.models.user.user_model import User
 
 from app.schemas.user.schemas import (
@@ -15,6 +19,8 @@ from app.schemas.user.schemas import (
     LoginRequest,
     UserResponse
 )
+
+bearer_scheme = HTTPBearer(auto_error=False)
 
 
 limiter = Limiter(key_func=get_remote_address)
@@ -100,18 +106,33 @@ def login(request: Request, body: LoginRequest, db: Session = Depends(get_db)):
 
 # -----------------------------------
 # LOGOUT
-# clears the httpOnly cookie
+# invalidates the JWT server-side
+# via an in-memory token blacklist
 # -----------------------------------
 
 @router.post("/logout")
-def logout(response: Response):
+def logout(
+    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+):
+    token = credentials.credentials if credentials else None
 
-    response.delete_cookie(
-    key="access_token",
-    httponly=True,
-    samesite="none",  # ✅ must match how it was set
-    secure=True,
-    )
+    if token:
+        # Decode to get the expiry time so the blacklist entry
+        # can be auto-cleaned after the token would have expired anyway
+        payload = decode_access_token(token)
+        if payload and "exp" in payload:
+            expires_at = datetime.fromtimestamp(payload["exp"], tz=timezone.utc)
+        else:
+            # If we can't decode, still blacklist but assume max TTL
+            from app.core.security.auth import ACCESS_TOKEN_EXPIRE_MINUTES
+            expires_at = datetime.now(timezone.utc) + timedelta(
+                minutes=ACCESS_TOKEN_EXPIRE_MINUTES
+            )
+
+        blacklist_token(token, expires_at)
+
+    # Periodic cleanup — remove tokens that have naturally expired
+    cleanup_expired()
 
     return {"message": "Logged out successfully"}
 

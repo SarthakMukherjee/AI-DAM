@@ -1,59 +1,74 @@
+# =================================================
+# FRAMEWORK & SERVER
+# =================================================
 fastapi
 uvicorn
 python-multipart
+slowapi
+aiofiles
 
+# =================================================
+# DATABASE & ORM
+# =================================================
 sqlalchemy
 psycopg2-binary
 alembic
 
+# =================================================
+# VALIDATION & CONFIG
+# =================================================
 pydantic
 pydantic-settings
-
-python-magic
-
-pillow
-pymupdf
-python-docx
-
-ffmpeg-python
-
-aiofiles
-
 python-dotenv
-# python-magic
-# python-magic-binary
 
-uuid
-
-slowapi
-
-transformers
-torch
-torchvision
-pillow
-pytesseract
-opencv-python
-ultralytics
-
-groq
-filetype
+# =================================================
 # AUTH
+# =================================================
 bcrypt==4.0.1
 passlib[bcrypt]
 python-jose[cryptography]
 email-validator
 
-# FILE TYPE DETECTION
+# =================================================
+# FILE HANDLING & TYPE DETECTION
+# =================================================
+python-magic
 filetype
 
-# VIDEO PROCESSING
-opencv-python
-
-chromadb
-sentence-transformers
-
-cloudinary 
-httpx
+# =================================================
+# DOCUMENT PROCESSING
+# =================================================
+pillow
+pymupdf
+python-docx
 docx
 python-pptx
 openpyxl
+
+# =================================================
+# VIDEO PROCESSING
+# =================================================
+ffmpeg-python
+opencv-python
+
+# =================================================
+# AI / ML
+# =================================================
+transformers
+torch
+torchvision
+pytesseract
+ultralytics
+groq
+
+# =================================================
+# VECTOR SEARCH & EMBEDDINGS
+# =================================================
+chromadb
+sentence-transformers
+
+# =================================================
+# CLOUD & HTTP
+# =================================================
+cloudinary
+httpx

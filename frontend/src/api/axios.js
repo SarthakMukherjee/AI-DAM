@@ -18,4 +18,19 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Auto-redirect to login on 401 (expired/revoked token)
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (
+      error.response?.status === 401 &&
+      !error.config?.url?.includes("/auth/login")
+    ) {
+      localStorage.removeItem("access_token");
+      window.location.href = "/login";
+    }
+    return Promise.reject(error);
+  }
+);
+
 export default api;

@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -42,9 +42,18 @@ initialize_storage()
 
 # -----------------------------------
 # RATE LIMITER
+# Uses X-Forwarded-For when behind a
+# reverse proxy, falls back to direct IP
 # -----------------------------------
 
-limiter = Limiter(key_func=get_remote_address)
+def _get_real_client_ip(request: Request) -> str:
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        # X-Forwarded-For: client, proxy1, proxy2 — take the first (real client)
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+limiter = Limiter(key_func=_get_real_client_ip)
 
 app = FastAPI(title="AI DAM SYSTEM")
 

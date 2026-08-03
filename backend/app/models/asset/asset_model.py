@@ -8,6 +8,7 @@ from sqlalchemy import (
     Boolean,
     Text,
     ForeignKey,
+    Index,
 )
 
 from sqlalchemy.dialects.postgresql import JSONB
@@ -17,6 +18,19 @@ from app.db.session.database import Base
 
 class Asset(Base):
     __tablename__ = "assets"
+
+    __table_args__ = (
+        # Individual indexes for common filters
+        Index("ix_assets_status", "status"),
+        Index("ix_assets_is_latest", "is_latest"),
+        Index("ix_assets_is_archived", "is_archived"),
+        Index("ix_assets_file_hash", "file_hash"),
+        Index("ix_assets_mime_type", "mime_type"),
+        Index("ix_assets_perceptual_hash", "perceptual_hash"),
+        Index("ix_assets_created_at", "created_at"),
+        # Composite index for the most common listing query
+        Index("ix_assets_listing", "status", "is_latest", "is_archived"),
+    )
 
     # PRIMARY ID
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))

@@ -1,7 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.responses import FileResponse, RedirectResponse
 import os
+import logging
 import mimetypes
+
+logger = logging.getLogger(__name__)
 from app.core.config.settings import settings
 from app.api.routes.asset_routes import is_cloud_url
 from sqlalchemy.orm import Session
@@ -178,7 +181,9 @@ def reject_asset(asset_id: str, request: Request, body: ReviewRequest, db: Sessi
     
     recipients = db.query(User).filter(User.role.in_(["admin", "super_admin"]), User.is_active == True).all()
     try: asset_name = asset.asset_metadata.get("mandatory", {}).get("asset_name", asset.original_filename)
-    except: asset_name = asset.original_filename
+    except Exception as e:
+        logger.warning("Failed to extract asset_name from metadata for asset %s: %s", asset_id, e)
+        asset_name = asset.original_filename
     msg = f"Asset rejected: {asset_name}."
     if body.rejection_category: msg += f" Category: {body.rejection_category}."
     for r in recipients: db.add(Notification(user_id=r.id, asset_id=asset_id, message=msg, reason=body.reason))

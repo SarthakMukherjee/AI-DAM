@@ -50,9 +50,15 @@ export const AuthProvider = ({ children }) => {
   // -----------------------------------
 
   const logout = async () => {
-    await api.post("/auth/logout");
-    localStorage.removeItem("access_token");
-    setUser(null);
+    try {
+      await api.post("/auth/logout");
+    } catch {
+      // Server-side invalidation failed (e.g. network error, token already expired)
+      // — still clear local state so the user is logged out on the client
+    } finally {
+      localStorage.removeItem("access_token");
+      setUser(null);
+    }
   };
 
   // -----------------------------------
