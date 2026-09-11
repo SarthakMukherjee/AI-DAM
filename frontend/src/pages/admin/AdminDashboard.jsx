@@ -58,7 +58,7 @@ const AdminDashboard = () => {
         })),
       ]);
 
-      setAssets(assetsRes.data);
+      setAssets(assetsRes.data.items || []);
       setDuplicateGroups(dupsRes.data.duplicate_groups || []);
     } catch (err) {
       console.error("Failed to fetch initial admin data:", err);

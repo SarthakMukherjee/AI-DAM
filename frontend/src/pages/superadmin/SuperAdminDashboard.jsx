@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 
 import {
   ShieldCheck,
@@ -41,7 +41,7 @@ const SuperAdminDashboard = () => {
           api.get("/super-admin/users"),
         ]);
 
-        setAssets(assetsRes.data);
+        setAssets(assetsRes.data.items || []);
 
         setUsers(usersRes.data);
       } catch {
