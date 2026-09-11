@@ -77,12 +77,13 @@ const AssetBrowser = () => {
     const fetchAssets = async () => {
       try {
         const res = await api.get("/assets/");
-        setAssets(res.data);
+        const items = res.data.items || [];
+        setAssets(items);
         
         // Extract unique campaigns
         const uniqueCampaigns = [
           ...new Set(
-            res.data
+            items
               .map((a) => a.asset_metadata?.business?.campaign)
               .filter(Boolean)
           )

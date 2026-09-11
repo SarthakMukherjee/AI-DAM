@@ -129,7 +129,7 @@ const UploadAsset = () => {
     const fetchAssets = async () => {
       try {
         const res = await api.get("/assets");
-        setAvailableAssets(res.data || []);
+        setAvailableAssets(res.data.items || res.data || []);
       } catch (err) {
         console.error(err);
       }
