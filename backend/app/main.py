@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -73,7 +74,7 @@ app.add_middleware(SlowAPIMiddleware)
 # httpOnly cookie to work
 # -----------------------------------
 
-ALLOWED_ORIGINS = [
+_DEFAULT_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "http://localhost:5174",
@@ -82,10 +83,19 @@ ALLOWED_ORIGINS = [
     "http://127.0.0.1:5175",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "https://aidamfe.vestaging.in",
+    "http://aidamfe.vestaging.in",
     "https://ai-dam-six.vercel.app",
     "https://ai-dam-git-main-sarthak-ve-s-projects.vercel.app",
     "https://ai-idaigqetz-sarthak-ve-s-projects.vercel.app",
 ]
+
+_env_origins = os.getenv("ALLOWED_ORIGINS") or os.getenv("CORS_ORIGINS")
+if _env_origins:
+    _extra_origins = [o.strip() for o in _env_origins.split(",") if o.strip()]
+    ALLOWED_ORIGINS = list(dict.fromkeys(_DEFAULT_ALLOWED_ORIGINS + _extra_origins))
+else:
+    ALLOWED_ORIGINS = _DEFAULT_ALLOWED_ORIGINS
 
 app.add_middleware(
     CORSMiddleware,
